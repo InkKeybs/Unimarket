@@ -1,0 +1,38 @@
+#verificationPage {
+  height: 100vh;
+  width: 100vw;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background-color: var(--accent);
+}
+
+#verifyInfoBox {
+  width: 60vw;
+  height: 80vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  flex-direction: column;
+  background-color: var(--surface);
+  border-radius: 40px;
+  img {
+    width: 5vw;
+    margin-bottom: 10px;
+  }
+  h1 {
+    font-size: 2.3rem;
+  }
+  button {
+    margin-top: 20px;
+    width: 10rem;
+    height: 2.5rem;
+    font-size: 1.2rem;
+  background-color: var(--success);
+    border-radius: 20px;
+    cursor: pointer;
+  }
+  button:hover {
+    background-color: var(--success-hover);
+  }
+}

@@ -1,0 +1,327 @@
+#profilePage {
+  width: 100vw;
+  min-height: 100vh;
+  padding: 10vh 10vw;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  background: linear-gradient(135deg, var(--primary), var(--accent));
+}
+
+#profileTitle {
+  margin-bottom: 30px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 20px;
+}
+
+#profileTitle span {
+  font-size: 2rem;
+  font-weight: bold;
+  color: var(--primary);
+}
+
+#profileTitle a {
+  font-size: 1rem;
+  text-decoration: none;
+  color: var(--text-muted);
+  background: var(--success);
+  padding: 8px 16px;
+  border-radius: 20px;
+  transition: background 0.3s;
+}
+
+#profileTitle a:hover {
+  background: var(--success-hover);
+  color: white;
+}
+
+#addbid {
+  background-color: var(--accent);
+}
+
+#logout {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 400px;
+  max-width: 90vw;
+  padding: 30px;
+  border-radius: 15px;
+  text-align: center;
+  background-color: var(--surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  z-index: 10;
+}
+
+#logout #logoutBTNS {
+  margin-top: 20px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+#logout #logoutContext {
+  margin: 15px 0;
+  color: var(--text-muted);
+}
+
+#logout button {
+  flex: 1;
+  height: 40px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: white;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+#logout button:nth-child(1) {
+  background-color: var(--gray);
+}
+
+#logout button:nth-child(1):hover {
+  background-color: #555;
+}
+
+#logout button:nth-child(2) {
+  background-color: var(--danger);
+}
+
+#logout button:nth-child(2):hover {
+  background-color: var(--danger-strong);
+}
+
+#logoutTitle {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--text-strong);
+  margin-bottom: 10px;
+}
+
+#logoutblur {
+  position: fixed;
+  height: 100%;
+  width: 100vw;
+  top: 0;
+  left: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 5;
+}
+
+.profileAttribute {
+  display: flex;
+  flex-direction: column;
+  margin: 15px 0;
+  font-size: 1rem;
+}
+
+.profileAttribute label {
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 5px;
+}
+
+.profileAttribute input {
+  font-size: 1rem;
+  padding: 10px 15px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background-color: var(--muted);
+  transition: border-color 0.3s, box-shadow 0.3s;
+}
+
+.profileAttribute input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 5px rgba(0, 0, 128, 0.3);
+}
+
+.mybidtitle {
+  font-size: 1.5rem;
+  font-weight: bold;
+  color: var(--primary);
+  margin: 40px 0 20px 0;
+  border-bottom: 2px solid var(--border);
+  padding-bottom: 10px;
+}
+
+.mybidcontainer {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.mybidname {
+  font-size: 1.2rem;
+  font-weight: 600;
+  color: var(--text-strong);
+  margin-bottom: 5px;
+}
+
+.mybidele {
+  background-color: var(--muted);
+  border-radius: 12px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.mybidele:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
+}
+
+.mybidele img {
+  height: 100px;
+  width: 120px;
+  object-fit: cover;
+}
+
+.mybidele .mybidinform {
+  flex: 1;
+  padding: 15px;
+}
+
+.mybidele .mybidx {
+  padding: 15px;
+  background-color: var(--danger);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.mybidele .mybidx:hover {
+  background-color: var(--danger-strong);
+}
+
+.mybidele .mybidx img {
+  height: 20px;
+  width: 20px;
+  opacity: 0.8;
+}
+
+#profileContainer {
+  min-height: 80vh;
+  width: 50vw;
+  max-width: 600px;
+  border-radius: 20px;
+  padding: 30px;
+  background-color: var(--surface);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+  display: flex;
+  flex-direction: column;
+}
+
+#profileBtns {
+  width: 100%;
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 20px 0;
+  button {
+    flex: 1;
+    height: 45px;
+    font-size: 1rem;
+    font-weight: 600;
+    color: white;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: background 0.3s, transform 0.2s;
+  }
+  button:nth-child(1) {
+    background-color: var(--success);
+  }
+
+  button:nth-child(1):hover {
+    background-color: var(--success-hover);
+    transform: translateY(-2px);
+  }
+  button:nth-child(2) {
+    background-color: var(--danger);
+  }
+  button:nth-child(2):hover {
+    background-color: var(--danger-strong);
+    transform: translateY(-2px);
+  }
+  button:nth-child(3) {
+    background-color: #8b0000;
+  }
+  button:nth-child(3):hover {
+    background-color: #a00000;
+    transform: translateY(-2px);
+  }
+}
+
+@media only screen and (max-width: 900px) {
+  #profilePage {
+    padding: 10vh 5vw;
+  }
+  #profileTitle {
+    span {
+      font-size: 1.8rem;
+    }
+    a {
+      font-size: 0.9rem;
+      padding: 6px 12px;
+    }
+  }
+  #profileContainer {
+    width: 85vw;
+    border-radius: 15px;
+    padding: 20px;
+  }
+  .profileAttribute {
+    font-size: 0.9rem;
+    margin: 10px 0;
+    label {
+      font-weight: 600;
+      margin-bottom: 3px;
+    }
+    input {
+      font-size: 0.9rem;
+      padding: 8px 12px;
+    }
+  }
+  #profileBtns {
+    flex-direction: column;
+    gap: 10px;
+    button {
+      height: 40px;
+      font-size: 0.9rem;
+    }
+  }
+
+  .mybidtitle {
+    font-size: 1.3rem;
+    margin: 30px 0 15px 0;
+  }
+  .mybidcontainer {
+    grid-template-columns: 1fr;
+    gap: 15px;
+  }
+  #logout {
+    width: 90vw;
+    padding: 20px;
+    button {
+      height: 35px;
+      font-size: 0.9rem;
+    }
+  }
+
+  #logoutTitle {
+    font-size: 1.3rem;
+  }
+}

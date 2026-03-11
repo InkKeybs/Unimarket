@@ -1,0 +1,127 @@
+@import url("https://fonts.googleapis.com/css2?family=Aladin&family=Biryani:wght@200;300;400&family=Epilogue:wght@300;400;500;600&family=Henny+Penny&family=Krona+One&family=Lexend:wght@200;300;400;500;600;700&family=Playfair+Display:wght@400;500;600&family=Poppins:wght@300;800&family=Raleway:wght@300;400;600;800&family=Roboto:wght@500&family=Sora:wght@200;300;400;500;600&display=swap");
+
+:root {
+  /* Light theme */
+  --bg: #ffffff;
+  --text: #000000;
+  --primary: #000080;      /* navy blue */
+  --accent: #ffffff;       /* white */
+  --toothpaste: #000080;
+  --muted: #f0f0f0;        /* light gray */
+  --success: #28a745;      /* green */
+  --success-hover: #218838;
+  --success-dark: #1e7e34;
+  --success-dark-2: #155724;
+  --danger: #dc3545;       /* red */
+  --danger-strong: #c82333;
+  --gray: #6c757d;
+  --border: #dee2e6;
+  --surface: #ffffff;
+  --text-muted: #6c757d;
+  --text-strong: #000000;
+}
+
+:root.dark {
+  /* Dark theme: Black and White */
+  --bg: #000000;
+  --text: #ffffff;
+  --primary: #ffffff;      /* white for accents */
+  --accent: #000000;       /* black */
+  --toothpaste: #ffffff;
+  --muted: #333333;        /* dark gray */
+  --success: #ffffff;  /* white for buttons */
+  --success-hover: #cccccc;
+  --success-dark: #ffffff;
+  --success-dark-2: #ffffff;
+  --danger: #ff0000;       /* red for danger */
+  --danger-strong: #ff0000;
+  --gray: #666666;
+  --border: #444444;
+  --surface: #000000;
+  --text-muted: #cccccc;
+  --text-strong: #ffffff;
+}
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  font-family: "Raleway", sans-serif;
+  /* user-select: none; */
+}
+
+.flex {
+  display: flex;
+}
+
+.flex-row {
+  flex-direction: row;
+}
+
+.flex-col {
+  flex-direction: column;
+}
+
+.justify-around {
+  justify-content: space-around;
+}
+
+.items-center {
+  align-items: center;
+}
+
+.justify-between {
+  display: flex;
+  justify-content: space-between;
+}
+.justify-evenly {
+  justify-content: space-evenly;
+}
+.w-screen {
+  width: 100vw;
+}
+.text-center {
+  text-align: center;
+}
+html {
+  scroll-behavior: smooth;
+  overflow-x: hidden;
+}
+
+body {
+  overflow-x: hidden;
+  background-color: var(--bg);
+  color: var(--text);
+}
+
+a {
+  text-decoration: none;
+  color: inherit;
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #888;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #555;
+}
+input[type="number"]::-webkit-inner-spin-button,
+input[type="number"]::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  margin: 0;
+}
+
+.product-text {
+    color: var(--primary);
+}

@@ -1,0 +1,129 @@
+#sellPage {
+  width: 100vw;
+  min-height: 100vh;
+  padding: 10vh 20vw;
+  display: flex;
+  flex-direction: column;
+  background: linear-gradient(to bottom, var(--primary), var(--surface));
+}
+
+#sellBox {
+  min-height: 80vh;
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  width: 60vw;
+  border-radius: 30px;
+  padding: 10vh 10vw;
+  background-color: rgba(255, 255, 255, 0.903);
+  position: relative;
+  input {
+    font-size: 1.3rem;
+    padding: 3px 10px;
+    background-color: rgba(245, 222, 179, 0);
+    border-bottom: 1px solid rgba(0, 0, 0, 0.385);
+  }
+  input:focus {
+    outline: none;
+    border-bottom: 1px solid black;
+  }
+  button {
+    width: 50%;
+    height: 2.5rem;
+    background-color: green;
+    font-size: 1.2rem;
+    color: white;
+    border-radius: 10px;
+  }
+}
+.sellTitle {
+  font-size: 3rem;
+}
+.checkboxes {
+  display: flex;
+  flex-direction: row;
+  justify-content: space-between;
+  width: 80%;
+}
+
+.sellinput {
+  span {
+    width: 10vw;
+    font-size: 1.1rem;
+  }
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.fileInput {
+  display: none;
+}
+
+.fileInputLabel {
+  display: inline-block;
+  padding: 10px 24px;
+  background: linear-gradient(135deg, var(--primary), #000066);
+  color: white;
+  font-size: 1rem;
+  font-weight: 500;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  border: none;
+}
+
+.fileInputLabel:hover {
+  background: linear-gradient(135deg, #000066, var(--primary));
+  transform: translateY(-2px);
+  box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
+}
+
+#sellBox #backButton {
+  position: absolute;
+  top: 30px;
+  left: 30px;
+  background-color: transparent !important;
+  color: var(--primary);
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.3s ease;
+  width: 30px !important;
+  height: 30px !important;
+  line-height: 1;
+  border-radius: 0;
+}
+
+#sellBox #backButton:hover {
+  color: #FFD700;
+  transform: translateX(-3px);
+  background-color: transparent !important;
+}
+
+@media only screen and (max-width: 1000px) {
+  #sellPage {
+    padding: 10vh 5vw;
+  }
+  #sellBox {
+    width: 90vw;
+    padding: 10vh 5vw;
+    input {
+      font-size: 1rem;
+    }
+  }
+  .sellinput {
+    span {
+      width: 50vw;
+      font-size: 1rem;
+    }
+  }
+  .checkboxes {
+    width: 100%;
+  }
+}
