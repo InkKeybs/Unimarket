@@ -2,6 +2,36 @@ const nodemailer = require("nodemailer");
 
 module.exports = async (email, subject, text) => {
   try {
+    if (process.env.BREVO_API_KEY) {
+      const senderEmail = process.env.USER;
+      const senderName = process.env.BREVO_SENDER_NAME || "Unimarket";
+
+      const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "api-key": process.env.BREVO_API_KEY,
+        },
+        body: JSON.stringify({
+          sender: {
+            email: senderEmail,
+            name: senderName,
+          },
+          to: [{ email }],
+          subject,
+          textContent: text,
+        }),
+      });
+
+      if (!response.ok) {
+        const responseText = await response.text();
+        throw new Error(`Brevo API error: ${response.status} ${responseText}`);
+      }
+
+      console.log("Email sent via Brevo API!");
+      return;
+    }
+
     const transportConfig = process.env.SMTP_HOST
       ? {
           host: process.env.SMTP_HOST,
