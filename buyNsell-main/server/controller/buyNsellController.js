@@ -24,6 +24,11 @@ const issuePending2FAToken = (userId) =>
     expiresIn: "12m",
   });
 
+const issuePendingRegisterToken = (userId) =>
+  jwt.sign({ _id: userId, stage: "pending-register" }, process.env.JWTPRIVATEKEY, {
+    expiresIn: "15m",
+  });
+
 const createAndSendOtp = async (user) => {
   await Otp.deleteMany({ userId: user._id, purpose: "login" });
   const code = generateOtpCode();
@@ -68,40 +73,11 @@ const login = async (req, res) => {
       return res.status(401).send({ message: "Invalid Email or Password" });
     }
     if (!user.verified) {
-      let token = await Token.findOne({ userId: user._id });
-      if (!token) {
-        token = await new Token({
-          userId: user._id,
-          token: crypto.randomBytes(32).toString("hex"),
-        }).save();
-        const url = `${process.env.BASE_URL}users/${user.id}/verify/${token.token}`;
-        // Send email non-blocking
-        sendEmail(user.mail, "Verification of Email", url).catch((err) => {
-          console.log("Verification email send failed", err?.message || err);
-        });
-      }
-
-      return res
-        .status(400)
-        .send({ message: "An Email sent to your account please verify" });
+      return res.status(400).send({ message: "Please verify your email to complete registration." });
     }
 
-    const { code: devOtp } = await createAndSendOtp(user);
-
-    const pendingToken = issuePending2FAToken(user._id);
-    const responseBody = {
-      message: "2FA code sent to email",
-      requires2fa: true,
-      pendingToken,
-      expiresInMinutes: OTP_TTL_MINUTES,
-    };
-
-    // For local/dev only, include the OTP to unblock testing
-    if (devOtp) {
-      responseBody.devOtp = devOtp;
-    }
-
-    res.status(200).send(responseBody);
+    const { accessToken, refreshToken } = await generateTokens(user);
+    res.status(200).send({ accessToken, refreshToken, message: "Signed in successfully" });
   } catch (error) {
     console.log(error);
     res.status(500).send({ message: "Internal Server Error" });
@@ -224,17 +200,84 @@ const register = async (req, res) => {
     const salt = await bcrypt.genSalt(Number(process.env.SALT));
     const hashPassword = await bcrypt.hash(req.body.password, salt);
 
-    user = await new User({ ...req.body, password: hashPassword, verified: true }).save();
+    user = await new User({ ...req.body, password: hashPassword, verified: false }).save();
 
-    // const token = await new Token({
-    //   userId: user._id,
-    //   token: crypto.randomBytes(32).toString("hex"),
-    // }).save();
-    // const url = `Click this link to verify your email-id : ${process.env.BASE_URL}users/${user.id}/verify/${token.token}`;
-    // await sendEmail(user.mail, "Verification of Mail", url);
+    // Generate OTP for registration verification
+    await Otp.deleteMany({ userId: user._id, purpose: "register" });
+    const regCode = generateOtpCode();
+    const regCodeHash = hashOtp(regCode);
+    const regExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+    await Otp.create({ userId: user._id, codeHash: regCodeHash, expiresAt: regExpiresAt, purpose: "register" });
+
+    const regEmailText = `Your Unimarket registration code is ${regCode}. It expires in ${OTP_TTL_MINUTES} minutes.`;
+    sendEmail(user.mail, "Verify your Unimarket account", regEmailText).catch((err) => {
+      console.log("Register OTP email send failed", err?.message || err);
+    });
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`DEV Register OTP for ${user.mail}: ${regCode}`);
+    }
+
+    const regPendingToken = issuePendingRegisterToken(user._id);
 
     res.status(201).send({
-      message: "User registered successfully.",
+      message: "OTP sent to your email. Please verify to complete registration.",
+      info: "otpSent",
+      pendingToken: regPendingToken,
+      expiresInMinutes: OTP_TTL_MINUTES,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+};
+
+const verifyRegisterOtp = async (req, res) => {
+  try {
+    const { pendingToken, code } = req.body;
+    if (!pendingToken || !code) {
+      return res.status(400).send({ message: "Pending token and code are required" });
+    }
+
+    let payload;
+    try {
+      payload = jwt.verify(pendingToken, process.env.JWTPRIVATEKEY);
+    } catch (err) {
+      return res.status(401).send({ message: "Invalid or expired token. Please register again." });
+    }
+
+    if (payload.stage !== "pending-register") {
+      return res.status(400).send({ message: "Invalid token stage" });
+    }
+
+    const otpDoc = await Otp.findOne({
+      userId: payload._id,
+      purpose: "register",
+      consumed: false,
+    }).sort({ createdAt: -1 });
+
+    if (!otpDoc) {
+      return res.status(400).send({ message: "OTP not found. Please register again." });
+    }
+
+    if (otpDoc.expiresAt < new Date()) {
+      await Otp.deleteMany({ userId: payload._id, purpose: "register" });
+      return res.status(400).send({ message: "OTP expired. Please register again." });
+    }
+
+    const isValid = otpDoc.codeHash === hashOtp(code.trim());
+    if (!isValid) {
+      return res.status(401).send({ message: "Invalid code. Please try again." });
+    }
+
+    otpDoc.consumed = true;
+    await otpDoc.save();
+
+    await User.updateOne({ _id: payload._id }, { verified: true });
+    await Otp.deleteMany({ userId: payload._id, purpose: "register", consumed: true });
+
+    res.status(200).send({
+      message: "Email verified! Registration complete. You can now log in.",
       info: "registered",
     });
   } catch (error) {
@@ -1103,6 +1146,7 @@ module.exports = {
   resetPassword,
   logout,
   register,
+  verifyRegisterOtp,
   verify,
   token,
   delToken,
