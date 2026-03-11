@@ -29,7 +29,10 @@ function Register() {
     if (data.year === "") { toast.error("Please enter which year you're from!"); return; }
     if (data.address === "") { toast.error("Address field required!"); return; }
     if (Number(data.phone) < 9000000000 || Number(data.phone) > 9999999999) { toast.error("Please enter valid phone no.!"); return; }
-    if (data.password.length < 8) { toast.error("Password should be 8 characters long!"); return; }
+    if (!/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,16}$/.test(data.password)) {
+      toast.error("Password must be 8-16 characters with at least 1 uppercase, 1 lowercase, and 1 number!");
+      return;
+    }
 
     setLoading(true);
     axios({
@@ -88,7 +91,7 @@ function Register() {
     <div id="login" className={styles.login}>
       <Design />
       <div id={styles.loginFormContainer}>
-        <button id={styles.backButton} onClick={() => navigate(-1)}>â† Back</button>
+        <button id={styles.backButton} onClick={() => navigate(-1)}>← Back</button>
 
         {step === "done" ? (
           <div id={styles.emailSent}>
@@ -119,7 +122,7 @@ function Register() {
                 {loading ? "Verifying..." : "Verify & Complete Registration"}
               </button>
               <button type="button" disabled={loading} onClick={() => { setStep("form"); setOtpCode(""); }} style={{ marginTop: "8px", background: "transparent", border: "1px solid #ffd700", color: "#ffd700", padding: "8px", borderRadius: "5px", cursor: "pointer" }}>
-                â† Back to form
+                ← Back to form
               </button>
             </form>
           </>
@@ -132,7 +135,7 @@ function Register() {
               <input required type="number" name="year" value={data.year} placeholder="year" onChange={handleChange} autoComplete="off" />
               <input required type="text" name="address" value={data.address} placeholder="address" onChange={handleChange} autoComplete="off" />
               <input required type="number" name="phone" maxLength={10} minLength={10} placeholder="phone no." value={data.phone} onChange={handleChange} autoComplete="off" />
-              <input required type="password" name="password" pattern="(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,}" placeholder="password" minLength={8} maxLength={16} value={data.password} onChange={handleChange} autoComplete="off" />
+              <input required type="password" name="password" placeholder="password" minLength={8} maxLength={16} value={data.password} onChange={handleChange} autoComplete="off" />
               <span id={styles.registerHere}>
                 already a user?{" "}
                 <Link to="/login" style={{ color: "#ffd700" }}>Sign In</Link>
