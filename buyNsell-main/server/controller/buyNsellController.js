@@ -38,13 +38,10 @@ const createAndSendOtp = async (user) => {
   });
 
   const emailText = `Your Unimarket login code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`;
-  let emailSent = true;
-  try {
-    await sendEmail(user.mail, "Your Unimarket login code", emailText);
-  } catch (err) {
-    emailSent = false;
+  // Send email in background (non-blocking)
+  sendEmail(user.mail, "Your Unimarket login code", emailText).catch((err) => {
     console.log("OTP email send failed", err?.message || err);
-  }
+  });
 
   // Dev fallback: log OTP to console so QA can proceed if email is misconfigured
   if (process.env.NODE_ENV !== "production") {
@@ -54,7 +51,6 @@ const createAndSendOtp = async (user) => {
   return {
     expiresAt,
     code: process.env.NODE_ENV !== "production" ? code : undefined,
-    emailSent,
   };
 };
 
@@ -79,7 +75,10 @@ const login = async (req, res) => {
           token: crypto.randomBytes(32).toString("hex"),
         }).save();
         const url = `${process.env.BASE_URL}users/${user.id}/verify/${token.token}`;
-        await sendEmail(user.mail, "Verification of Email", url);
+        // Send email non-blocking
+        sendEmail(user.mail, "Verification of Email", url).catch((err) => {
+          console.log("Verification email send failed", err?.message || err);
+        });
       }
 
       return res
@@ -87,10 +86,7 @@ const login = async (req, res) => {
         .send({ message: "An Email sent to your account please verify" });
     }
 
-    const { code: devOtp, emailSent } = await createAndSendOtp(user);
-    if (!emailSent && process.env.NODE_ENV === "production") {
-      return res.status(500).send({ message: "Failed to send OTP email. Please try again later." });
-    }
+    const { code: devOtp } = await createAndSendOtp(user);
 
     const pendingToken = issuePending2FAToken(user._id);
     const responseBody = {
