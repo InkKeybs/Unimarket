@@ -1,0 +1,30 @@
+services:
+  - type: web
+    name: unimarket-api
+    env: node
+    rootDir: buyNsell-main/server
+    plan: free
+    autoDeploy: true
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: PORT
+        value: 10000
+      - key: ATLAS_KEY
+        sync: false
+      - key: JWTPRIVATEKEY
+        sync: false
+      - key: JWTREFRESHPRIVATEKEY
+        sync: false
+      - key: SERVICE
+        sync: false
+      - key: USER
+        sync: false
+      - key: PASS
+        sync: false
+      - key: BASE_URL
+        sync: false
+      - key: CORS_ORIGIN
+        sync: false
