@@ -26,12 +26,19 @@ function Login() {
 
   const handleSubmit = (e) => {
     e.preventDefault();
+    if (loading) {
+      return;
+    }
     setLoading(true);
     axios({
       method: "post",
       baseURL: `${process.env.REACT_APP_BASEURL}`,
       url: "/api/login",
-      data: data,
+      timeout: 20000,
+      data: {
+        ...data,
+        mail: data.mail.trim().toLowerCase(),
+      },
     })
       .then(function (response) {
         if (response.data.requires2fa && response.data.pendingToken) {
@@ -55,6 +62,9 @@ function Login() {
 
   const handleVerifyOtp = (e) => {
     e.preventDefault();
+    if (loading) {
+      return;
+    }
     if (!otpCode || !pendingToken) {
       toast.error("Enter the code sent to your email");
       return;
@@ -64,6 +74,7 @@ function Login() {
       method: "post",
       baseURL: `${process.env.REACT_APP_BASEURL}`,
       url: "/api/verify-otp",
+      timeout: 20000,
       data: { pendingToken, code: otpCode },
     })
       .then(function (response) {
@@ -80,6 +91,9 @@ function Login() {
 
   const handleResendOtp = (e) => {
     e.preventDefault();
+    if (loading) {
+      return;
+    }
     if (!pendingToken) {
       toast.error("Start login first");
       return;
@@ -89,6 +103,7 @@ function Login() {
       method: "post",
       baseURL: `${process.env.REACT_APP_BASEURL}`,
       url: "/api/resend-otp",
+      timeout: 20000,
       data: { pendingToken },
     })
       .then(function (response) {
@@ -142,7 +157,7 @@ function Login() {
                 Forgot Password?
               </Link>
             </span>
-            <button type="submit" onClick={handleSubmit} disabled={loading}>
+            <button type="submit" disabled={loading}>
               {loading ? "Sending code..." : "Login"}
             </button>
           </form>
