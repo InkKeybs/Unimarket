@@ -805,6 +805,50 @@ const rejectProduct = async (req, res) => {
   }
 };
 
+const getAdminAllProducts = async (req, res) => {
+  try {
+    const adminUser = await requireAdminUser(req, res);
+    if (!adminUser) return;
+
+    const { search, statusFilter } = req.body;
+    const query = {};
+    if (statusFilter && ["pending", "approved", "rejected"].includes(statusFilter)) {
+      query.status = statusFilter;
+    }
+    if (search && search.trim()) {
+      const pattern = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
+      query.$or = [{ pname: pattern }, { pcat: pattern }];
+    }
+
+    const products = await Product.find(query).sort({ preg: -1 }).lean();
+    res.status(200).send({ error: false, details: products });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ error: true, message: "Failed to fetch products" });
+  }
+};
+
+const adminDeleteProduct = async (req, res) => {
+  try {
+    const adminUser = await requireAdminUser(req, res);
+    if (!adminUser) return;
+
+    const { productId } = req.body;
+    const product = await Product.findById(productId);
+    if (!product) {
+      return res.status(404).send({ error: true, message: "Product not found" });
+    }
+
+    await Product.deleteOne({ _id: productId });
+    await Bid.deleteOne({ prodId: productId });
+
+    res.status(200).send({ error: false, message: "Product deleted" });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ error: true, message: "Failed to delete product" });
+  }
+};
+
 const addbid = async (req, res) => {
   try {
     const { biddata } = req.body;
@@ -1417,6 +1461,9 @@ module.exports = {
   approveProduct,
   rejectProduct,
   renewListing,
+    renewListing,
+    getAdminAllProducts,
+    adminDeleteProduct,
   addbid,
   removebid,
   fixdeal,

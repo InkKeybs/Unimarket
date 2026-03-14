@@ -32,7 +32,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
-  border: 1px solid;
+  border: 1px solid #e5e7eb;
   border-radius: 10px;
   padding: 12px;
   gap: 12px;
@@ -44,12 +44,14 @@
   align-items: center;
   text-decoration: none;
   color: inherit;
+  flex: 1;
 
   img {
     width: 88px;
     height: 88px;
     object-fit: cover;
     border-radius: 8px;
+    flex-shrink: 0;
   }
 }
 
@@ -63,6 +65,7 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
+  flex-shrink: 0;
 
   button {
     border: 1px solid;
@@ -74,10 +77,143 @@
 
 .approveBtn {
   font-weight: 700;
+  color: #047857;
+  border-color: #047857 !important;
+  background: transparent;
 }
 
 .rejectBtn {
   font-weight: 700;
+  color: #b91c1c;
+  border-color: #b91c1c !important;
+  background: transparent;
+}
+
+.deleteBtn {
+  font-weight: 700;
+  color: #fff;
+  background: #dc2626;
+  border: 1px solid #dc2626 !important;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+.cancelBtn {
+  font-weight: 700;
+  color: #374151;
+  background: #f3f4f6;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  padding: 8px 12px;
+  cursor: pointer;
+}
+
+/* Tabs */
+.tabs {
+  display: flex;
+  gap: 0;
+  margin-bottom: 24px;
+  border-bottom: 2px solid #e5e7eb;
+}
+
+.tab,
+.tabActive {
+  background: none;
+  border: none;
+  padding: 10px 20px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #6b7280;
+}
+
+.tabActive {
+  border-bottom-color: #1d4ed8;
+  color: #1d4ed8;
+}
+
+.badge {
+  background: #dc2626;
+  color: #fff;
+  border-radius: 999px;
+  padding: 1px 7px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* Filter bar */
+.filterBar {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 16px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.searchInput {
+  flex: 1;
+  min-width: 180px;
+  padding: 8px 12px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.statusSelect {
+  padding: 8px 10px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  font-size: 14px;
+  background: #fff;
+}
+
+.searchBtn {
+  padding: 8px 18px;
+  background: #1d4ed8;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+/* Confirm delete modal */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+}
+
+.modal {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px 24px;
+  max-width: 360px;
+  width: 90%;
+  text-align: center;
+
+  p {
+    font-size: 16px;
+    margin-bottom: 20px;
+    font-weight: 600;
+  }
+}
+
+.modalActions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
 }
 
 @media (max-width: 760px) {
@@ -93,5 +229,21 @@
   .actionCol {
     width: 100%;
     flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .filterBar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .modalActions {
+    flex-direction: column;
+  }
+
+  .tab,
+  .tabActive {
+    padding: 8px 12px;
+    font-size: 14px;
   }
 }
