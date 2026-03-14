@@ -63,6 +63,9 @@ const productSchema = new Schema({
     type: Schema.Types.ObjectId,
     ref: "User",
   },
+  expiresAt: {
+    type: Date,
+  },
 });
 
 const Product = mongoose.model("Product", productSchema, "products");

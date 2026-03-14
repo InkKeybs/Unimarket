@@ -13,6 +13,7 @@ const verifyRefreshToken = require("../utils/verifyRefreshToken");
 const generateTokens = require("../utils/generateToken.js");
 
 const OTP_TTL_MINUTES = 10;
+const LISTING_EXPIRY_DAYS = parseInt(process.env.LISTING_EXPIRY_DAYS) || 7;
 const PRODUCT_APPROVAL_STATUS = {
   PENDING: "pending",
   APPROVED: "approved",
@@ -26,9 +27,20 @@ const hashOtp = (code) =>
 
 const buildApprovedProductFilter = () => ({
   sold: { $ne: true },
-  $or: [
-    { status: PRODUCT_APPROVAL_STATUS.APPROVED },
-    { status: { $exists: false } },
+  $and: [
+    {
+      $or: [
+        { status: PRODUCT_APPROVAL_STATUS.APPROVED },
+        { status: { $exists: false } },
+      ],
+    },
+    {
+      $or: [
+        { expiresAt: { $exists: false } },
+        { expiresAt: null },
+        { expiresAt: { $gt: new Date() } },
+      ],
+    },
   ],
 });
 
@@ -62,22 +74,36 @@ const getUserFromRefreshToken = async (refreshToken) => {
 const isApprovedProduct = (product) =>
   !product?.status || product.status === PRODUCT_APPROVAL_STATUS.APPROVED;
 
+const isProductExpired = (product) => {
+  if (!product?.expiresAt) return false;
+  return new Date(product.expiresAt) <= new Date();
+};
+
 const canViewProduct = (product, user) => {
   if (!product) {
     return false;
   }
 
-  if (isApprovedProduct(product)) {
+  const approved = isApprovedProduct(product);
+  const expired = isProductExpired(product);
+
+  // Public can see approved, non-expired products
+  if (approved && !expired) {
     return true;
   }
 
+  // Logged-in check required for pending/rejected/expired
   if (!user) {
     return false;
   }
 
-  return (
-    user.role === "admin" || product.id?.toString() === user._id?.toString()
-  );
+  // Admin sees everything
+  if (user.role === "admin") {
+    return true;
+  }
+
+  // Seller can always see their own listing (to renew, etc.)
+  return product.id?.toString() === user._id?.toString();
 };
 
 const requireAdminUser = async (req, res) => {
@@ -501,6 +527,7 @@ const profile = async (req, res) => {
         pimage: mydata[i].pimage,
         preg: mydata[i].preg,
         status: mydata[i].status || PRODUCT_APPROVAL_STATUS.APPROVED,
+        expiresAt: mydata[i].expiresAt || null,
       };
       myprodData.push(temp);
     }
@@ -644,9 +671,13 @@ const prodData = async (req, res) => {
     }
 
     if (!canViewProduct(data, requestingUser)) {
-      return res
-        .status(404)
-        .send({ error: true, message: "Product is awaiting admin approval" });
+      const expired = isProductExpired(data);
+      return res.status(404).send({
+        error: true,
+        message: expired
+          ? "This listing has expired"
+          : "Product is awaiting admin approval",
+      });
     }
 
     const bid = await Bid.findOne({ prodId: id });
@@ -656,9 +687,10 @@ const prodData = async (req, res) => {
     }
 
     const { name, mail, phone } = seller;
+    const isExpired = isProductExpired(data);
     res
       .status(200)
-      .send({ error: false, details: { data, bid, name, mail, phone } });
+      .send({ error: false, details: { data, bid, name, mail, phone }, isExpired });
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true });
@@ -668,10 +700,14 @@ const prodData = async (req, res) => {
 const sell = async (req, res) => {
   try {
     const { pdata, id } = req.body;
+    const expiresAt = new Date(
+      Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000
+    );
     await Product.create({
       ...pdata,
       id,
       status: PRODUCT_APPROVAL_STATUS.PENDING,
+      expiresAt,
     });
     res
       .status(200)
@@ -1319,6 +1355,43 @@ const resetPassword = async (req, res) => {
   }
 };
 
+const renewListing = async (req, res) => {
+  try {
+    const { pid, token } = req.body;
+    const user = await getUserFromRefreshToken(token);
+    if (!user) {
+      return res.status(401).send({ error: true, message: "Not authenticated" });
+    }
+
+    const product = await Product.findById(pid);
+    if (!product) {
+      return res.status(404).send({ error: true, message: "Product not found" });
+    }
+
+    // Only the seller or an admin may renew
+    if (
+      user.role !== "admin" &&
+      product.id?.toString() !== user._id?.toString()
+    ) {
+      return res.status(403).send({ error: true, message: "Not authorized" });
+    }
+
+    const newExpiresAt = new Date(
+      Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000
+    );
+    await Product.updateOne({ _id: pid }, { expiresAt: newExpiresAt });
+
+    res.status(200).send({
+      error: false,
+      message: `Listing renewed for ${LISTING_EXPIRY_DAYS} days`,
+      expiresAt: newExpiresAt,
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ error: true, message: "Failed to renew listing" });
+  }
+};
+
 module.exports = {
   prodData,
   deletemybid,
@@ -1343,6 +1416,7 @@ module.exports = {
   getPendingProducts,
   approveProduct,
   rejectProduct,
+  renewListing,
   addbid,
   removebid,
   fixdeal,

@@ -22,6 +22,7 @@ router.post("/sell", buyNsell.sell);
 router.post("/admin/pending-products", buyNsell.getPendingProducts);
 router.post("/admin/approve-product", buyNsell.approveProduct);
 router.post("/admin/reject-product", buyNsell.rejectProduct);
+router.post("/renewlisting", buyNsell.renewListing);
 router.post("/update", buyNsell.update);
 router.post("/prodData", buyNsell.prodData);
 router.post("/searchproduct", buyNsell.searchproduct);

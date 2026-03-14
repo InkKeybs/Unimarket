@@ -70,6 +70,21 @@ function Profile() {
     }
   };
 
+  const getExpiryInfo = (expiresAt) => {
+    if (!expiresAt) return null;
+    const now = new Date();
+    const exp = new Date(expiresAt);
+    const msLeft = exp - now;
+    const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+    if (daysLeft <= 0) {
+      return { label: "Expired", color: "#b91c1c", bg: "#fef2f2", expired: true, daysLeft };
+    }
+    if (daysLeft <= 7) {
+      return { label: `Expires in ${daysLeft} day${daysLeft === 1 ? "" : "s"}`, color: "#92400e", bg: "#fffbeb", expired: false, daysLeft };
+    }
+    return { label: `Expires in ${daysLeft} days`, color: "#065f46", bg: "#ecfdf5", expired: false, daysLeft };
+  };
+
   const handleUpdate = () => {
     toast.loading("Processing", {
       duration: 5000,
@@ -388,6 +403,55 @@ function Profile() {
                             This listing was rejected and is hidden from buyers.
                           </p>
                         ) : null}
+                        {(() => {
+                          const expiry = getExpiryInfo(ele.expiresAt);
+                          if (!expiry) return null;
+                          return (
+                            <div style={{ display: "flex", alignItems: "center", gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
+                              <span style={{
+                                background: expiry.bg,
+                                color: expiry.color,
+                                borderRadius: "999px",
+                                padding: "3px 9px",
+                                fontSize: "11px",
+                                fontWeight: 700,
+                              }}>
+                                {expiry.label}
+                              </span>
+                              {expiry.expired && (
+                                <button
+                                  style={{
+                                    background: "#1d4ed8",
+                                    color: "#fff",
+                                    border: "none",
+                                    borderRadius: "6px",
+                                    padding: "3px 10px",
+                                    fontSize: "11px",
+                                    fontWeight: 700,
+                                    cursor: "pointer",
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    const token = JSON.parse(localStorage.getItem("token"));
+                                    axios({
+                                      method: "post",
+                                      baseURL: `${process.env.REACT_APP_BASEURL}`,
+                                      url: "/api/renewlisting",
+                                      data: { pid: ele.id, token },
+                                    })
+                                      .then(() => {
+                                        toast.success("Listing renewed!");
+                                        window.location.reload();
+                                      })
+                                      .catch(() => toast.error("Failed to renew listing"));
+                                  }}
+                                >
+                                  Renew
+                                </button>
+                              )}
+                            </div>
+                          );
+                        })()}
                       </div>
                     </Link>
                     <div

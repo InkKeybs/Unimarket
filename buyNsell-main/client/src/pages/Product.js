@@ -16,6 +16,8 @@ function Product() {
   const [id, setId] = useState("");
   const [isMyProd, setIsMyProd] = useState(false);
   const [valid, setValid] = useState(false);
+  const [expiresAt, setExpiresAt] = useState(null);
+  const [isExpired, setIsExpired] = useState(false);
   const [sname, setSname] = useState("");
   const [smail, setSmail] = useState("");
   const [sphone, setPhone] = useState("");
@@ -111,6 +113,10 @@ function Product() {
             setSmail(response.data.details.mail);
             setPhone(response.data.details.phone);
             setbidAmount(data.pprice);
+            if (response.data.details.data.expiresAt) {
+              setExpiresAt(new Date(response.data.details.data.expiresAt));
+            }
+            setIsExpired(response.data.isExpired || false);
             setLoading(false);
             setProdExist(true);
           })
@@ -410,6 +416,26 @@ function Product() {
       ) : (
         <>
           <Link to="/" className={styles.backArrow}>← Back</Link>
+          {expiresAt && (() => {
+            const now = new Date();
+            const msLeft = expiresAt - now;
+            const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
+            if (isExpired || daysLeft <= 0) {
+              return (
+                <div style={{ background: "#fef2f2", color: "#b91c1c", padding: "10px 18px", borderRadius: "8px", margin: "10px 20px", fontWeight: 600, fontSize: "14px" }}>
+                  ⚠️ This listing has expired and is no longer active.
+                </div>
+              );
+            }
+            if (daysLeft <= 7) {
+              return (
+                <div style={{ background: "#fffbeb", color: "#92400e", padding: "10px 18px", borderRadius: "8px", margin: "10px 20px", fontWeight: 600, fontSize: "14px" }}>
+                  ⏰ This listing expires in {daysLeft} day{daysLeft === 1 ? "" : "s"}.
+                </div>
+              );
+            }
+            return null;
+          })()}
           <div id={styles.productInformation}>
             <div id={styles.imageContainer}>
               <img src={data.pimage} id={styles.pimage} alt={data.pname} />
