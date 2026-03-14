@@ -51,9 +51,14 @@ app.use(
 mongoose.set("strictQuery", false);
 app.use(express.urlencoded({ extended: false }));
 if (process.env.ATLAS_KEY) {
+  const connectOptions = {};
+  if (process.env.DB_NAME) {
+    connectOptions.dbName = process.env.DB_NAME;
+  }
+
   mongoose
-    .connect(`${process.env.ATLAS_KEY}`)
-    .then(() => console.log("connected to db"))
+    .connect(`${process.env.ATLAS_KEY}`, connectOptions)
+    .then(() => console.log(`connected to db: ${mongoose.connection.name}`))
     .catch((err) => console.log("DB connection error:", err));
 } else {
   console.log("ATLAS_KEY not set — skipping MongoDB connection. Set ATLAS_KEY in .env to connect to your database.");

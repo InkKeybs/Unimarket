@@ -16,8 +16,13 @@ async function run() {
   }
 
   try {
-    await mongoose.connect(process.env.ATLAS_KEY);
-    console.log("Connected to MongoDB");
+    const connectOptions = {};
+    if (process.env.DB_NAME) {
+      connectOptions.dbName = process.env.DB_NAME;
+    }
+
+    await mongoose.connect(process.env.ATLAS_KEY, connectOptions);
+    console.log(`Connected to MongoDB database: ${mongoose.connection.name}`);
 
     const collections = [
       { name: "users", model: User },
@@ -30,8 +35,12 @@ async function run() {
     ];
 
     for (const collection of collections) {
+      const beforeCount = await collection.model.countDocuments({});
       const result = await collection.model.deleteMany({});
-      console.log(`Cleared ${collection.name}: ${result.deletedCount} document(s) removed`);
+      const afterCount = await collection.model.countDocuments({});
+      console.log(
+        `Cleared ${collection.name}: ${result.deletedCount} removed (before: ${beforeCount}, after: ${afterCount})`
+      );
     }
 
     console.log("Database cleared successfully.");

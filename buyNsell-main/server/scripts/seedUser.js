@@ -9,9 +9,14 @@ async function run() {
     process.exit(1);
   }
 
+  const connectOptions = {};
+  if (process.env.DB_NAME) {
+    connectOptions.dbName = process.env.DB_NAME;
+  }
+
   const atlas = process.env.ATLAS_KEY;
-  await mongoose.connect(atlas, { useNewUrlParser: true, useUnifiedTopology: true });
-  console.log('Connected to MongoDB');
+  await mongoose.connect(atlas, connectOptions);
+  console.log(`Connected to MongoDB database: ${mongoose.connection.name}`);
 
   const email = process.env.SEED_USER_EMAIL || 'testuser@example.com';
   const password = process.env.SEED_USER_PASSWORD || 'TestPass123!';

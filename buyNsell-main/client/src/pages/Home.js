@@ -32,6 +32,7 @@ function Home() {
   );
   const [disProd, setDisProd] = useState([]);
   const [valid, setValid] = useState(false);
+  const [role, setRole] = useState("user");
   useEffect(() => {
     console.log("useEffect running, REACT_APP_BASEURL:", process.env.REACT_APP_BASEURL);
     try {
@@ -49,6 +50,7 @@ function Home() {
           .then(function (response) {
             console.log("Token validation successful");
             setValid(true);
+            setRole(response.data.role || "user");
             setNotificationData(response.data.allNotifications);
             console.log(response.data.allNotifications);
           })
@@ -139,6 +141,11 @@ function Home() {
             <div>
               <Link to="/sell">Sell</Link>
             </div>
+            {role === "admin" ? (
+              <div>
+                <Link to="/admin">Admin</Link>
+              </div>
+            ) : null}
             <div>
               <Link id={styles.registerNav} to="/profile">
                 Profile

@@ -1,0 +1,97 @@
+.adminPage {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: 24px;
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 16px;
+}
+
+.navLinks {
+  display: flex;
+  gap: 16px;
+}
+
+.loaderWrap {
+  display: flex;
+  justify-content: center;
+  padding: 24px 0;
+}
+
+.listWrap {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.itemCard {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid;
+  border-radius: 10px;
+  padding: 12px;
+  gap: 12px;
+}
+
+.itemMain {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  text-decoration: none;
+  color: inherit;
+
+  img {
+    width: 88px;
+    height: 88px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+}
+
+.productName {
+  font-size: 18px;
+  font-weight: 700;
+  margin: 0 0 6px 0;
+}
+
+.actionCol {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+  button {
+    border: 1px solid;
+    border-radius: 8px;
+    padding: 8px 12px;
+    cursor: pointer;
+  }
+}
+
+.approveBtn {
+  font-weight: 700;
+}
+
+.rejectBtn {
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .adminPage {
+    padding: 16px;
+  }
+
+  .itemCard {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .actionCol {
+    width: 100%;
+    flex-direction: row;
+  }
+}

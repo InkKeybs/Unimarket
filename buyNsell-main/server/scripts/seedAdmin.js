@@ -9,8 +9,13 @@ async function run() {
     process.exit(1);
   }
 
-  await mongoose.connect(process.env.ATLAS_KEY);
-  console.log("Connected to MongoDB");
+  const connectOptions = {};
+  if (process.env.DB_NAME) {
+    connectOptions.dbName = process.env.DB_NAME;
+  }
+
+  await mongoose.connect(process.env.ATLAS_KEY, connectOptions);
+  console.log(`Connected to MongoDB database: ${mongoose.connection.name}`);
 
   const email = process.env.SEED_ADMIN_EMAIL || "admin@rtu.edu.ph";
   const password = process.env.SEED_ADMIN_PASSWORD || "AdminPass123!";

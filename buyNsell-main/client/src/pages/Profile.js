@@ -41,8 +41,6 @@ function Profile() {
   const [del, setDelete] = useState(false);
   const [id, setId] = useState("");
   const [role, setRole] = useState("user");
-  const [pendingProducts, setPendingProducts] = useState([]);
-  const [adminLoading, setAdminLoading] = useState(false);
   const [data, setData] = useState({
     name: "",
     mail: "",
@@ -70,56 +68,6 @@ function Profile() {
           color: "#047857",
         };
     }
-  };
-
-  const loadPendingProducts = (token) => {
-    setAdminLoading(true);
-    axios({
-      method: "post",
-      baseURL: `${process.env.REACT_APP_BASEURL}`,
-      url: "/api/admin/pending-products",
-      data: { token },
-    })
-      .then((response) => {
-        setPendingProducts(response.data.details || []);
-      })
-      .catch((error) => {
-        console.log(error);
-        toast.error("Failed to load pending products");
-      })
-      .finally(() => {
-        setAdminLoading(false);
-      });
-  };
-
-  const handleAdminReview = (productId, action) => {
-    const token = JSON.parse(localStorage.getItem("token"));
-    const endpoint =
-      action === "approve"
-        ? "/api/admin/approve-product"
-        : "/api/admin/reject-product";
-
-    toast.loading("Processing", { duration: 2000 });
-    axios({
-      method: "post",
-      baseURL: `${process.env.REACT_APP_BASEURL}`,
-      url: endpoint,
-      data: { token, productId },
-    })
-      .then(() => {
-        setPendingProducts((prev) =>
-          prev.filter((product) => product._id !== productId)
-        );
-        toast.success(
-          action === "approve"
-            ? "Product approved successfully"
-            : "Product rejected successfully"
-        );
-      })
-      .catch((error) => {
-        console.log(error);
-        toast.error("Failed to update product status");
-      });
   };
 
   const handleUpdate = () => {
@@ -160,9 +108,6 @@ function Profile() {
         const myid = response.data.userid;
         setId(myid);
         setRole(response.data.role || "user");
-        if (response.data.role === "admin") {
-          loadPendingProducts(token);
-        }
         axios({
           method: "post",
           baseURL: `${process.env.REACT_APP_BASEURL}`,
@@ -317,6 +262,11 @@ function Profile() {
           <button type="button" onClick={handleUpdate}>
             Update
           </button>
+          {role === "admin" ? (
+            <button type="button" onClick={() => navigate("/admin")}>
+              Admin Panel
+            </button>
+          ) : null}
           <button type="button" onClick={handleLogout}>
             Logout
           </button>
@@ -324,102 +274,6 @@ function Profile() {
             Delete
           </button>
         </div>
-        {role === "admin" ? (
-          <div style={{ marginBottom: "32px" }}>
-            <div className={styles.mybidtitle}>Pending Product Approvals</div>
-            <div className={styles.mybidcontainer}>
-              {adminLoading ? (
-                <p>Loading pending products...</p>
-              ) : pendingProducts.length > 0 ? (
-                pendingProducts.map((product) => {
-                  return (
-                    <div
-                      key={product._id}
-                      className={styles.mybidele}
-                      style={{ alignItems: "stretch" }}
-                    >
-                      <Link
-                        to={`/product/${product._id}`}
-                        className="flex flex-row items-center"
-                      >
-                        <img src={product.pimage} alt={product.pname} />
-                        <div className={styles.mybidinform}>
-                          <div
-                            style={{
-                              display: "flex",
-                              alignItems: "center",
-                              gap: "8px",
-                              flexWrap: "wrap",
-                            }}
-                          >
-                            <p className={styles.mybidname}>{product.pname}</p>
-                            <span
-                              style={{
-                                ...getStatusBadgeStyle(product.status),
-                                borderRadius: "999px",
-                                padding: "4px 10px",
-                                fontSize: "12px",
-                                fontWeight: 700,
-                                textTransform: "capitalize",
-                              }}
-                            >
-                              {product.status}
-                            </span>
-                          </div>
-                          <p>category : {product.pcat}</p>
-                          <p>price : ₱ {product.pprice}</p>
-                          <p>submitted on : {product.preg.slice(0, 10)}</p>
-                        </div>
-                      </Link>
-                      <div
-                        style={{
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: "8px",
-                          justifyContent: "center",
-                          minWidth: "120px",
-                        }}
-                      >
-                        <button
-                          type="button"
-                          onClick={() => handleAdminReview(product._id, "approve")}
-                          style={{
-                            border: "none",
-                            borderRadius: "10px",
-                            padding: "10px 14px",
-                            background: "#16a34a",
-                            color: "white",
-                            cursor: "pointer",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Approve
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleAdminReview(product._id, "reject")}
-                          style={{
-                            border: "1px solid #fecaca",
-                            borderRadius: "10px",
-                            padding: "10px 14px",
-                            background: "#fff1f2",
-                            color: "#be123c",
-                            cursor: "pointer",
-                            fontWeight: 600,
-                          }}
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    </div>
-                  );
-                })
-              ) : (
-                <p>No pending products.</p>
-              )}
-            </div>
-          </div>
-        ) : null}
         <div>
           <div className={styles.mybidtitle}>My Purchases</div>
           <div className={styles.mybidcontainer}>
