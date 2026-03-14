@@ -44,6 +44,25 @@ const productSchema = new Schema({
   soldPrice: {
     type: Number,
   },
+  status: {
+    type: String,
+    enum: ["pending", "approved", "rejected"],
+    default: "pending",
+  },
+  approvedAt: {
+    type: Date,
+  },
+  approvedBy: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+  },
+  rejectedAt: {
+    type: Date,
+  },
+  rejectedBy: {
+    type: Schema.Types.ObjectId,
+    ref: "User",
+  },
 });
 
 const Product = mongoose.model("Product", productSchema, "products");

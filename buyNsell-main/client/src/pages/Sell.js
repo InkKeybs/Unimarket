@@ -100,11 +100,11 @@ function Sell() {
       data: { pdata: data, id: id },
     })
       .then(function (response) {
-        toast.success("Product details updated successfully!");
+        toast.success("Product submitted for admin approval!");
         navigate("/");
       })
       .catch(function (error) {
-        toast.error("Failed to update the details!");
+        toast.error("Failed to submit the product!");
         console.log("error caught in frontend from backend");
       });
   };

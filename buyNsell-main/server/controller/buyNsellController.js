@@ -13,11 +13,83 @@ const verifyRefreshToken = require("../utils/verifyRefreshToken");
 const generateTokens = require("../utils/generateToken.js");
 
 const OTP_TTL_MINUTES = 10;
+const PRODUCT_APPROVAL_STATUS = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+};
 
 const generateOtpCode = () => Math.floor(100000 + Math.random() * 900000).toString();
 
 const hashOtp = (code) =>
   crypto.createHash("sha256").update(code).digest("hex");
+
+const buildApprovedProductFilter = () => ({
+  sold: { $ne: true },
+  $or: [
+    { status: PRODUCT_APPROVAL_STATUS.APPROVED },
+    { status: { $exists: false } },
+  ],
+});
+
+const getUserFromRefreshToken = async (refreshToken) => {
+  if (!refreshToken) {
+    return null;
+  }
+
+  try {
+    const storedToken = await UserToken.findOne({ token: refreshToken });
+    if (!storedToken) {
+      return null;
+    }
+
+    const tokenDetails = jwt.verify(
+      refreshToken,
+      process.env.JWTREFRESHPRIVATEKEY
+    );
+
+    if (!tokenDetails?._id) {
+      return null;
+    }
+
+    const user = await User.findById(tokenDetails._id);
+    return user;
+  } catch (error) {
+    return null;
+  }
+};
+
+const isApprovedProduct = (product) =>
+  !product?.status || product.status === PRODUCT_APPROVAL_STATUS.APPROVED;
+
+const canViewProduct = (product, user) => {
+  if (!product) {
+    return false;
+  }
+
+  if (isApprovedProduct(product)) {
+    return true;
+  }
+
+  if (!user) {
+    return false;
+  }
+
+  return (
+    user.role === "admin" || product.id?.toString() === user._id?.toString()
+  );
+};
+
+const requireAdminUser = async (req, res) => {
+  const user = await getUserFromRefreshToken(req.body?.token);
+
+  if (!user || user.role !== "admin") {
+    res.status(403).send({ error: true, message: "Admin access required" });
+    return null;
+  }
+
+  return user;
+};
 
 const issuePending2FAToken = (userId) =>
   jwt.sign({ _id: userId, stage: "pending-2fa" }, process.env.JWTPRIVATEKEY, {
@@ -428,6 +500,7 @@ const profile = async (req, res) => {
         pprice: mydata[i].pprice,
         pimage: mydata[i].pimage,
         preg: mydata[i].preg,
+        status: mydata[i].status || PRODUCT_APPROVAL_STATUS.APPROVED,
       };
       myprodData.push(temp);
     }
@@ -518,7 +591,7 @@ const update = async (req, res) => {
 
 const displayProd = async (req, res) => {
   try {
-    const data = await Product.find({ sold: { $ne: true } }).lean();
+    const data = await Product.find(buildApprovedProductFilter()).lean();
     res.status(200).send({ error: false, details: data });
   } catch (error) {
     console.log("Error: ", error);
@@ -529,10 +602,11 @@ const displayProd = async (req, res) => {
 const searchproduct = async (req, res) => {
   try {
     const searchval = (req.body.searchval || "").trim();
+    const approvedFilter = buildApprovedProductFilter();
 
     // If search is empty, return all unsold products to avoid surprising blanks
     if (!searchval) {
-      const allUnsold = await Product.find({ sold: { $ne: true } }).lean();
+      const allUnsold = await Product.find(approvedFilter).lean();
       return res.status(200).send({ mysearchdata: allUnsold });
     }
 
@@ -544,8 +618,12 @@ const searchproduct = async (req, res) => {
 
     const pattern = new RegExp(tokens.map((t) => `(?=.*${t})`).join("") + ".*", "i");
     const data = await Product.find({
-      sold: { $ne: true },
-      $or: [{ pname: pattern }, { pcat: pattern }, { pdetail: pattern }],
+      ...approvedFilter,
+      $and: [
+        {
+          $or: [{ pname: pattern }, { pcat: pattern }, { pdetail: pattern }],
+        },
+      ],
     }).lean();
 
     res.status(200).send({ mysearchdata: data });
@@ -558,10 +636,26 @@ const searchproduct = async (req, res) => {
 const prodData = async (req, res) => {
   try {
     const id = req.body.id;
+    const requestingUser = await getUserFromRefreshToken(req.body.token);
     console.log(id);
     const data = await Product.findById(id);
+    if (!data) {
+      return res.status(404).send({ error: true, message: "Product not found" });
+    }
+
+    if (!canViewProduct(data, requestingUser)) {
+      return res
+        .status(404)
+        .send({ error: true, message: "Product is awaiting admin approval" });
+    }
+
     const bid = await Bid.findOne({ prodId: id });
-    const { name, mail, phone } = await User.findById(data.id);
+    const seller = await User.findById(data.id);
+    if (!seller) {
+      return res.status(404).send({ error: true, message: "Seller not found" });
+    }
+
+    const { name, mail, phone } = seller;
     res
       .status(200)
       .send({ error: false, details: { data, bid, name, mail, phone } });
@@ -574,14 +668,104 @@ const prodData = async (req, res) => {
 const sell = async (req, res) => {
   try {
     const { pdata, id } = req.body;
-    pdata.id = id;
-    await Product.create(pdata);
+    await Product.create({
+      ...pdata,
+      id,
+      status: PRODUCT_APPROVAL_STATUS.PENDING,
+    });
     res
       .status(200)
-      .send({ error: false, message: "Product added successfully" });
+      .send({ error: false, message: "Product submitted for admin approval" });
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true, message: "Product wasn't added" });
+  }
+};
+
+const getPendingProducts = async (req, res) => {
+  try {
+    const adminUser = await requireAdminUser(req, res);
+    if (!adminUser) {
+      return;
+    }
+
+    const pendingProducts = await Product.find({
+      sold: { $ne: true },
+      status: PRODUCT_APPROVAL_STATUS.PENDING,
+    })
+      .sort({ preg: -1 })
+      .lean();
+
+    res.status(200).send({ error: false, details: pendingProducts });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ error: true, message: "Failed to load pending products" });
+  }
+};
+
+const approveProduct = async (req, res) => {
+  try {
+    const adminUser = await requireAdminUser(req, res);
+    if (!adminUser) {
+      return;
+    }
+
+    const { productId } = req.body;
+    const product = await Product.findByIdAndUpdate(
+      productId,
+      {
+        status: PRODUCT_APPROVAL_STATUS.APPROVED,
+        approvedAt: new Date(),
+        approvedBy: adminUser._id,
+        $unset: {
+          rejectedAt: "",
+          rejectedBy: "",
+        },
+      },
+      { new: true }
+    );
+
+    if (!product) {
+      return res.status(404).send({ error: true, message: "Product not found" });
+    }
+
+    res.status(200).send({ error: false, message: "Product approved" });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ error: true, message: "Failed to approve product" });
+  }
+};
+
+const rejectProduct = async (req, res) => {
+  try {
+    const adminUser = await requireAdminUser(req, res);
+    if (!adminUser) {
+      return;
+    }
+
+    const { productId } = req.body;
+    const product = await Product.findByIdAndUpdate(
+      productId,
+      {
+        status: PRODUCT_APPROVAL_STATUS.REJECTED,
+        rejectedAt: new Date(),
+        rejectedBy: adminUser._id,
+        $unset: {
+          approvedAt: "",
+          approvedBy: "",
+        },
+      },
+      { new: true }
+    );
+
+    if (!product) {
+      return res.status(404).send({ error: true, message: "Product not found" });
+    }
+
+    res.status(200).send({ error: false, message: "Product rejected" });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ error: true, message: "Failed to reject product" });
   }
 };
 
@@ -1156,6 +1340,9 @@ module.exports = {
   displayProd,
   searchproduct,
   sell,
+  getPendingProducts,
+  approveProduct,
+  rejectProduct,
   addbid,
   removebid,
   fixdeal,

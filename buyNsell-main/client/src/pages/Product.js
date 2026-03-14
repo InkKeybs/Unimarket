@@ -79,7 +79,7 @@ function Product() {
           method: "post",
           baseURL: `${process.env.REACT_APP_BASEURL}`,
           url: "/api/prodData",
-          data: { id: ppid },
+          data: { id: ppid, token: token },
         })
           .then(function (response) {
             console.log("SETID22");
@@ -129,7 +129,7 @@ function Product() {
       method: "post",
       baseURL: `${process.env.REACT_APP_BASEURL}`,
       url: "/api/prodData",
-      data: { id: ppid },
+      data: { id: ppid, token: token },
     })
       .then(function (response) {
         console.log("SETID22");
