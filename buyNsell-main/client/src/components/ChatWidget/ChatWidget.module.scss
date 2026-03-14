@@ -59,6 +59,38 @@
   animation: slideUp 0.3s ease;
 }
 
+@media only screen and (max-width: 700px) {
+  .chatBubble {
+    bottom: 16px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    font-size: 24px;
+  }
+
+  .chatWidget {
+    right: 10px;
+    bottom: 84px;
+    width: calc(100vw - 20px);
+    max-width: 420px;
+    height: min(72vh, 560px);
+    border-radius: 12px;
+  }
+
+  .chatHeader {
+    padding: 12px;
+    border-radius: 12px 12px 0 0;
+
+    h3 {
+      font-size: 1rem;
+    }
+
+    small {
+      font-size: 0.75rem;
+    }
+  }
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;
