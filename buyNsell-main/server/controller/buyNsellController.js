@@ -13,6 +13,7 @@ const verifyRefreshToken = require("../utils/verifyRefreshToken");
 const generateTokens = require("../utils/generateToken.js");
 
 const OTP_TTL_MINUTES = 10;
+const UNVERIFIED_ACCOUNT_TTL_MS = 60 * 60 * 1000;
 const LISTING_EXPIRY_DAYS = parseInt(process.env.LISTING_EXPIRY_DAYS) || 7;
 const PRODUCT_APPROVAL_STATUS = {
   PENDING: "pending",
@@ -24,6 +25,65 @@ const generateOtpCode = () => Math.floor(100000 + Math.random() * 900000).toStri
 
 const hashOtp = (code) =>
   crypto.createHash("sha256").update(code).digest("hex");
+
+const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
+const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const findUserByEmail = async (email) => {
+  const normalized = normalizeEmail(email);
+  let user = await User.findOne({ mail: normalized });
+  if (!user) {
+    user = await User.findOne({
+      mail: { $regex: `^${escapeRegex(normalized)}$`, $options: "i" },
+    });
+  }
+  return user;
+};
+
+const getUnverifiedExpiryFromUser = (user) => {
+  if (!user || user.verified) {
+    return null;
+  }
+
+  if (user.verificationExpiresAt) {
+    return new Date(user.verificationExpiresAt);
+  }
+
+  // Backward compatibility for legacy records without verificationExpiresAt.
+  const createdAtFromObjectId = user?._id?.getTimestamp?.();
+  if (createdAtFromObjectId) {
+    return new Date(createdAtFromObjectId.getTime() + UNVERIFIED_ACCOUNT_TTL_MS);
+  }
+
+  return null;
+};
+
+const isUnverifiedAccountExpired = (user) => {
+  if (!user || user.verified) {
+    return false;
+  }
+
+  const expiresAt = getUnverifiedExpiryFromUser(user);
+  if (!expiresAt) {
+    return false;
+  }
+
+  return expiresAt <= new Date();
+};
+
+const deleteExpiredUnverifiedAccountIfNeeded = async (user) => {
+  if (!isUnverifiedAccountExpired(user)) {
+    return false;
+  }
+
+  await Otp.deleteMany({ userId: user._id, purpose: "register" });
+  await User.deleteOne({ _id: user._id, verified: false });
+  return true;
+};
+
+const getUnverifiedAccountExpiryDate = () =>
+  new Date(Date.now() + UNVERIFIED_ACCOUNT_TTL_MS);
 
 const buildApprovedProductFilter = () => ({
   sold: { $ne: true },
@@ -157,9 +217,37 @@ const createAndSendOtp = async (user) => {
   };
 };
 
+const createAndSendRegisterOtp = async (user) => {
+  await Otp.deleteMany({ userId: user._id, purpose: "register" });
+  const code = generateOtpCode();
+  const codeHash = hashOtp(code);
+  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+
+  await Otp.create({
+    userId: user._id,
+    codeHash,
+    expiresAt,
+    purpose: "register",
+  });
+
+  const emailText = `Your Unimarket registration code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`;
+  sendEmail(user.mail, "Verify your Unimarket account", emailText).catch((err) => {
+    console.log("Register OTP email send failed", err?.message || err);
+  });
+
+  if (process.env.NODE_ENV !== "production") {
+    console.log(`DEV Register OTP for ${user.mail}: ${code}`);
+  }
+
+  return {
+    expiresAt,
+    code: process.env.NODE_ENV !== "production" ? code : undefined,
+  };
+};
+
 const login = async (req, res) => {
   try {
-    const user = await User.findOne({ mail: req.body.mail });
+    const user = await findUserByEmail(req.body.mail);
     if (!user) {
       return res.status(401).send({ message: "Invalid Email or Password" });
     }
@@ -171,6 +259,10 @@ const login = async (req, res) => {
       return res.status(401).send({ message: "Invalid Email or Password" });
     }
     if (!user.verified) {
+      const expiredAndDeleted = await deleteExpiredUnverifiedAccountIfNeeded(user);
+      if (expiredAndDeleted) {
+        return res.status(400).send({ message: "Your unverified account expired after 1 hour. Please register again." });
+      }
       return res.status(400).send({ message: "Please verify your email to complete registration." });
     }
 
@@ -281,40 +373,72 @@ const resendOtp = async (req, res) => {
 
 const register = async (req, res) => {
   try {
-    if (!req.body.mail.endsWith("@rtu.edu.ph")) {
+    const normalizedMail = normalizeEmail(req.body.mail);
+
+    if (!normalizedMail.endsWith("@rtu.edu.ph")) {
       return res.status(400).send({
         message: "Please use your RTU email (must end with @rtu.edu.ph)!",
         info: "invalidEmail",
       });
     }
-    let user = await User.findOne({ mail: req.body.mail });
-    if (user) {
-      console.log("user exist");
-      return res.status(200).send({
-        message: "User with given email already Exist!",
-        info: "userExist",
-      });
-    }
+
+    let user = await findUserByEmail(normalizedMail);
     const salt = await bcrypt.genSalt(Number(process.env.SALT));
     const hashPassword = await bcrypt.hash(req.body.password, salt);
 
-    user = await new User({ ...req.body, password: hashPassword, verified: false }).save();
+    if (user) {
+      if (user.verified) {
+        console.log("user exist");
+        return res.status(200).send({
+          message: "User with given email already Exist!",
+          info: "userExist",
+        });
+      }
 
-    // Generate OTP for registration verification
-    await Otp.deleteMany({ userId: user._id, purpose: "register" });
-    const regCode = generateOtpCode();
-    const regCodeHash = hashOtp(regCode);
-    const regExpiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
-    await Otp.create({ userId: user._id, codeHash: regCodeHash, expiresAt: regExpiresAt, purpose: "register" });
-
-    const regEmailText = `Your Unimarket registration code is ${regCode}. It expires in ${OTP_TTL_MINUTES} minutes.`;
-    sendEmail(user.mail, "Verify your Unimarket account", regEmailText).catch((err) => {
-      console.log("Register OTP email send failed", err?.message || err);
-    });
-
-    if (process.env.NODE_ENV !== "production") {
-      console.log(`DEV Register OTP for ${user.mail}: ${regCode}`);
+      const expiredAndDeleted = await deleteExpiredUnverifiedAccountIfNeeded(user);
+      if (expiredAndDeleted) {
+        user = null;
+      }
     }
+
+    if (user) {
+
+      // Recover stale/unverified accounts by refreshing profile data and resending OTP.
+      await User.updateOne(
+        { _id: user._id },
+        {
+          name: req.body.name,
+          mail: normalizedMail,
+          year: req.body.year,
+          address: req.body.address,
+          phone: req.body.phone,
+          password: hashPassword,
+          verified: false,
+          verificationExpiresAt: getUnverifiedAccountExpiryDate(),
+        }
+      );
+
+      user = await User.findById(user._id);
+      await createAndSendRegisterOtp(user);
+
+      const regPendingToken = issuePendingRegisterToken(user._id);
+      return res.status(200).send({
+        message: "An unverified account already exists. We sent a new OTP to continue.",
+        info: "otpSent",
+        pendingToken: regPendingToken,
+        expiresInMinutes: OTP_TTL_MINUTES,
+      });
+    }
+
+    user = await new User({
+      ...req.body,
+      mail: normalizedMail,
+      password: hashPassword,
+      verified: false,
+      verificationExpiresAt: getUnverifiedAccountExpiryDate(),
+    }).save();
+
+    await createAndSendRegisterOtp(user);
 
     const regPendingToken = issuePendingRegisterToken(user._id);
 
@@ -348,6 +472,16 @@ const verifyRegisterOtp = async (req, res) => {
       return res.status(400).send({ message: "Invalid token stage" });
     }
 
+    const user = await User.findById(payload._id);
+    if (!user) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    const expiredAndDeleted = await deleteExpiredUnverifiedAccountIfNeeded(user);
+    if (expiredAndDeleted) {
+      return res.status(400).send({ message: "Your unverified account expired after 1 hour. Please register again." });
+    }
+
     const otpDoc = await Otp.findOne({
       userId: payload._id,
       purpose: "register",
@@ -371,12 +505,61 @@ const verifyRegisterOtp = async (req, res) => {
     otpDoc.consumed = true;
     await otpDoc.save();
 
-    await User.updateOne({ _id: payload._id }, { verified: true });
+    await User.updateOne(
+      { _id: payload._id },
+      { verified: true, $unset: { verificationExpiresAt: "" } }
+    );
     await Otp.deleteMany({ userId: payload._id, purpose: "register", consumed: true });
 
     res.status(200).send({
       message: "Email verified! Registration complete. You can now log in.",
       info: "registered",
+    });
+  } catch (error) {
+    console.log(error);
+    res.status(500).send({ message: "Internal Server Error" });
+  }
+};
+
+const resendRegisterOtp = async (req, res) => {
+  try {
+    const { pendingToken } = req.body;
+    if (!pendingToken) {
+      return res.status(400).send({ message: "Pending token is required" });
+    }
+
+    let payload;
+    try {
+      payload = jwt.verify(pendingToken, process.env.JWTPRIVATEKEY);
+    } catch (err) {
+      return res.status(401).send({ message: "Invalid or expired token. Please register again." });
+    }
+
+    if (payload.stage !== "pending-register") {
+      return res.status(400).send({ message: "Invalid token stage" });
+    }
+
+    const user = await User.findById(payload._id);
+    if (!user) {
+      return res.status(404).send({ message: "User not found" });
+    }
+
+    if (user.verified) {
+      return res.status(400).send({ message: "Account already verified. Please log in." });
+    }
+
+    const expiredAndDeleted = await deleteExpiredUnverifiedAccountIfNeeded(user);
+    if (expiredAndDeleted) {
+      return res.status(400).send({ message: "Your unverified account expired after 1 hour. Please register again." });
+    }
+
+    await createAndSendRegisterOtp(user);
+    const newPendingToken = issuePendingRegisterToken(user._id);
+
+    res.status(200).send({
+      message: "Registration OTP resent",
+      pendingToken: newPendingToken,
+      expiresInMinutes: OTP_TTL_MINUTES,
     });
   } catch (error) {
     console.log(error);
@@ -1208,24 +1391,18 @@ const getChatList = async (req, res) => {
 // Request password reset - send OTP to email
 const requestPasswordReset = async (req, res) => {
   try {
-    const { email } = req.body;
+    const normalizedEmail = normalizeEmail(req.body.email);
 
-    if (!email) {
+    if (!normalizedEmail) {
       return res.status(400).send({ error: true, message: "Email is required" });
     }
 
-    console.log("Password reset request for email:", email);
-    
-    // Try exact match first, then case-insensitive
-    let user = await User.findOne({ mail: email });
-    
-    if (!user) {
-      // Try case-insensitive search
-      user = await User.findOne({ mail: { $regex: `^${email}$`, $options: "i" } });
-    }
+    console.log("Password reset request for email:", normalizedEmail);
+
+    const user = await findUserByEmail(normalizedEmail);
 
     if (!user) {
-      console.log("User not found for email:", email);
+      console.log("User not found for email:", normalizedEmail);
       return res.status(404).send({ error: true, message: "Email not found" });
     }
 
@@ -1448,6 +1625,7 @@ module.exports = {
   logout,
   register,
   verifyRegisterOtp,
+  resendRegisterOtp,
   verify,
   token,
   delToken,

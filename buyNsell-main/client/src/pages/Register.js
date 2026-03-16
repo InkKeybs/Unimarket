@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+﻿import React, { useEffect, useState } from "react";
 import styles from "./Login.module.scss";
 import { Link, useNavigate } from "react-router-dom";
 import Design from "../components/Design/Design";
@@ -10,7 +10,20 @@ function Register() {
   const [step, setStep] = useState("form");
   const [pendingToken, setPendingToken] = useState("");
   const [otpCode, setOtpCode] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
   const [loading, setLoading] = useState(false);
+    useEffect(() => {
+      if (resendCooldown <= 0) {
+        return undefined;
+      }
+
+      const timer = setInterval(() => {
+        setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+      }, 1000);
+
+      return () => clearInterval(timer);
+    }, [resendCooldown]);
+
   const [data, setData] = useState({
     name: "",
     mail: "",
@@ -48,6 +61,7 @@ function Register() {
         } else if (response.data.info === "otpSent") {
           toast.success("Verification code sent to your email!");
           setPendingToken(response.data.pendingToken);
+          setResendCooldown(30);
           setStep("otp");
         }
       })
@@ -78,6 +92,30 @@ function Register() {
       })
       .catch((error) => {
         toast.error(error?.response?.data?.message || "Invalid code!");
+      })
+      .finally(() => setLoading(false));
+  };
+
+  const handleResendOtp = () => {
+    if (loading || resendCooldown > 0 || !pendingToken) return;
+
+    setLoading(true);
+    axios({
+      method: "post",
+      baseURL: `${process.env.REACT_APP_BASEURL}`,
+      url: "/api/resend-register-otp",
+      timeout: 20000,
+      data: { pendingToken },
+    })
+      .then((response) => {
+        toast.success("A new code has been sent to your email!");
+        if (response.data.pendingToken) {
+          setPendingToken(response.data.pendingToken);
+        }
+        setResendCooldown(30);
+      })
+      .catch((error) => {
+        toast.error(error?.response?.data?.message || "Failed to resend code");
       })
       .finally(() => setLoading(false));
   };
@@ -120,6 +158,14 @@ function Register() {
               />
               <button type="submit" disabled={loading}>
                 {loading ? "Verifying..." : "Verify & Complete Registration"}
+              </button>
+              <button
+                type="button"
+                disabled={loading || resendCooldown > 0}
+                onClick={handleResendOtp}
+                style={{ marginTop: "8px", background: "transparent", border: "1px solid #ffd700", color: "#ffd700", padding: "8px", borderRadius: "5px", cursor: loading || resendCooldown > 0 ? "not-allowed" : "pointer" }}
+              >
+                {resendCooldown > 0 ? `Resend OTP in ${resendCooldown}s` : "Resend OTP"}
               </button>
               <button type="button" disabled={loading} onClick={() => { setStep("form"); setOtpCode(""); }} style={{ marginTop: "8px", background: "transparent", border: "1px solid #ffd700", color: "#ffd700", padding: "8px", borderRadius: "5px", cursor: "pointer" }}>
                 ← Back to form

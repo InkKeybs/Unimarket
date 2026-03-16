@@ -11,8 +11,21 @@ const UserSchema = new Schema({
   password: { type: String, required: true },
   course: { type: String, required: false },
   verified: { type: Boolean, default: false },
+  verificationExpiresAt: { type: Date, default: null },
   role: { type: String, default: "user", required: true },
 });
+
+// Auto-delete only unverified users once verification window expires.
+UserSchema.index(
+  { verificationExpiresAt: 1 },
+  {
+    expireAfterSeconds: 0,
+    partialFilterExpression: {
+      verified: false,
+      verificationExpiresAt: { $type: "date" },
+    },
+  }
+);
 
 UserSchema.methods.generateAuthToken = () => {
   const token = jwt.sign({ _id: this._id }, process.env.JWTPRIVATEKEY, {

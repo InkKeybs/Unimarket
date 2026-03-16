@@ -11,6 +11,7 @@ router.post("/verify-reset-code", buyNsell.verifyResetCode);
 router.post("/reset-password", buyNsell.resetPassword);
 router.post("/register", buyNsell.register);
 router.post("/verify-register-otp", buyNsell.verifyRegisterOtp);
+router.post("/resend-register-otp", buyNsell.resendRegisterOtp);
 router.post("/", buyNsell.token);
 router.delete("/", buyNsell.delToken);
 router.post("/profile", buyNsell.profile);
