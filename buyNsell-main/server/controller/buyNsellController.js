@@ -15,10 +15,26 @@ const generateTokens = require("../utils/generateToken.js");
 const OTP_TTL_MINUTES = 10;
 const UNVERIFIED_ACCOUNT_TTL_MS = 60 * 60 * 1000;
 const LISTING_EXPIRY_DAYS = parseInt(process.env.LISTING_EXPIRY_DAYS) || 7;
+const MAX_PRODUCT_IMAGE_BYTES = 14 * 1024 * 1024;
 const PRODUCT_APPROVAL_STATUS = {
   PENDING: "pending",
   APPROVED: "approved",
   REJECTED: "rejected",
+};
+
+const getDataUrlByteSize = (dataUrl) => {
+  if (typeof dataUrl !== "string") {
+    return 0;
+  }
+
+  const parts = dataUrl.split(",");
+  if (parts.length !== 2 || !parts[0].includes(";base64")) {
+    return 0;
+  }
+
+  const base64Data = parts[1];
+  const padding = (base64Data.match(/=*$/) || [""])[0].length;
+  return Math.floor((base64Data.length * 3) / 4) - padding;
 };
 
 const generateOtpCode = () => Math.floor(100000 + Math.random() * 900000).toString();
@@ -883,6 +899,15 @@ const prodData = async (req, res) => {
 const sell = async (req, res) => {
   try {
     const { pdata, id } = req.body;
+
+    const imageSizeInBytes = getDataUrlByteSize(pdata?.pimage);
+    if (imageSizeInBytes > MAX_PRODUCT_IMAGE_BYTES) {
+      return res.status(413).send({
+        error: true,
+        message: "Image size must be 14MB or less",
+      });
+    }
+
     const expiresAt = new Date(
       Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000
     );
@@ -913,6 +938,7 @@ const getPendingProducts = async (req, res) => {
       status: PRODUCT_APPROVAL_STATUS.PENDING,
     })
       .sort({ preg: -1 })
+      .setOptions({ allowDiskUse: true })
       .lean();
 
     res.status(200).send({ error: false, details: pendingProducts });
@@ -1003,7 +1029,10 @@ const getAdminAllProducts = async (req, res) => {
       query.$or = [{ pname: pattern }, { pcat: pattern }];
     }
 
-    const products = await Product.find(query).sort({ preg: -1 }).lean();
+    const products = await Product.find(query)
+      .sort({ preg: -1 })
+      .setOptions({ allowDiskUse: true })
+      .lean();
     res.status(200).send({ error: false, details: products });
   } catch (error) {
     console.log(error);

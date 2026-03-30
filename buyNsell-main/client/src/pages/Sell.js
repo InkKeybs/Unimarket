@@ -4,6 +4,8 @@ import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import axios from "axios";
 
+const MAX_IMAGE_SIZE_BYTES = 14 * 1024 * 1024;
+
 function Sell() {
   const navigate = useNavigate();
   const [cat, setCat] = useState("Gadgets");
@@ -66,8 +68,20 @@ function Sell() {
   };
 
   const convertToBase64 = (e) => {
+    const selectedFile = e.target.files && e.target.files[0];
+    if (!selectedFile) {
+      return;
+    }
+
+    if (selectedFile.size > MAX_IMAGE_SIZE_BYTES) {
+      toast.error("Image size must be 14MB or less.");
+      e.target.value = "";
+      setImage("");
+      return;
+    }
+
     var reader = new FileReader();
-    reader.readAsDataURL(e.target.files[0]);
+    reader.readAsDataURL(selectedFile);
     reader.onload = () => {
       setImage(reader.result);
     };
@@ -262,17 +276,20 @@ function Sell() {
 
         <div className={styles.sellinput}>
           <span>Product image</span>
-          <label htmlFor="fileInput" className={styles.fileInputLabel}>
-            {image ? "Image selected ✓" : "Choose File"}
-          </label>
-          <input
-            id="fileInput"
-            type="file"
-            name="pimage"
-            accept="image/*"
-            onChange={convertToBase64}
-            className={styles.fileInput}
-          ></input>
+          <div className={styles.fileInputWrapper}>
+            <label htmlFor="fileInput" className={styles.fileInputLabel}>
+              {image ? "Image selected ✓" : "Choose File"}
+            </label>
+            <input
+              id="fileInput"
+              type="file"
+              name="pimage"
+              accept="image/*"
+              onChange={convertToBase64}
+              className={styles.fileInput}
+            ></input>
+            <p className={styles.fileHelpText}>Max 14MB. JPG, PNG, WEBP supported.</p>
+          </div>
         </div>
 
         {image === "" || image === null ? (

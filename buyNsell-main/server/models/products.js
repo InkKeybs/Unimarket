@@ -68,5 +68,10 @@ const productSchema = new Schema({
   },
 });
 
+// Supports admin listing sorts and reduces in-memory sort pressure.
+productSchema.index({ preg: -1 });
+productSchema.index({ status: 1, preg: -1 });
+productSchema.index({ sold: 1, status: 1, preg: -1 });
+
 const Product = mongoose.model("Product", productSchema, "products");
 module.exports = Product;

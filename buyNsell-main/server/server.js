@@ -1,4 +1,5 @@
 const buyNsellRouter = require("./routes/buyNsell");
+const Product = require("./models/products");
 const bodyParser = require("body-parser");
 const mongoose = require("mongoose");
 const express = require("express");
@@ -50,6 +51,21 @@ app.use(
 
 mongoose.set("strictQuery", false);
 app.use(express.urlencoded({ extended: false }));
+
+const ensureIndexesOnStartup = async () => {
+  // Keep sort-critical indexes present in production even if autoIndex is disabled.
+  if (process.env.ENSURE_INDEXES_ON_STARTUP === "false") {
+    return;
+  }
+
+  try {
+    await Product.createIndexes();
+    console.log("Product indexes ensured");
+  } catch (error) {
+    console.log("Failed to ensure product indexes:", error?.message || error);
+  }
+};
+
 if (process.env.ATLAS_KEY) {
   const connectOptions = {};
   if (process.env.DB_NAME) {
@@ -58,7 +74,10 @@ if (process.env.ATLAS_KEY) {
 
   mongoose
     .connect(`${process.env.ATLAS_KEY}`, connectOptions)
-    .then(() => console.log(`connected to db: ${mongoose.connection.name}`))
+    .then(async () => {
+      console.log(`connected to db: ${mongoose.connection.name}`);
+      await ensureIndexesOnStartup();
+    })
     .catch((err) => console.log("DB connection error:", err));
 } else {
   console.log("ATLAS_KEY not set — skipping MongoDB connection. Set ATLAS_KEY in .env to connect to your database.");
