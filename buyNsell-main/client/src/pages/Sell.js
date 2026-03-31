@@ -169,8 +169,9 @@ function Sell() {
           ></input>
         </div>
         <div className={styles.checkboxes}>
-          <label htmlFor="gadgets">
+          <label htmlFor="gadgets" className={styles.categoryOption}>
             <input
+              id="gadgets"
               type="radio"
               name="gadgets"
               onChange={(e) => {
@@ -184,11 +185,12 @@ function Sell() {
               }}
               checked={gadgets}
             />
-            Gadgets
+            <span>Gadgets</span>
           </label>
 
-          <label htmlFor="books">
+          <label htmlFor="books" className={styles.categoryOption}>
             <input
+              id="books"
               type="radio"
               name="books"
               onChange={(e) => {
@@ -202,10 +204,11 @@ function Sell() {
               }}
               checked={books}
             />
-            Books
+            <span>Books</span>
           </label>
-          <label htmlFor="clothes">
+          <label htmlFor="clothes" className={styles.categoryOption}>
             <input
+              id="clothes"
               type="radio"
               name="clothes"
               onChange={(e) => {
@@ -219,10 +222,11 @@ function Sell() {
               }}
               checked={clothes}
             />
-            Clothes
+            <span>Clothes</span>
           </label>
-          <label htmlFor="supplies">
+          <label htmlFor="supplies" className={styles.categoryOption}>
             <input
+              id="supplies"
               type="radio"
               name="supplies"
               onChange={(e) => {
@@ -236,10 +240,11 @@ function Sell() {
               }}
               checked={supplies}
             />
-            Supplies
+            <span>Supplies</span>
           </label>
-          <label htmlFor="food">
+          <label htmlFor="food" className={styles.categoryOption}>
             <input
+              id="food"
               type="radio"
               name="food"
               onChange={(e) => {
@@ -253,10 +258,11 @@ function Sell() {
               }}
               checked={food}
             />
-            Food
+            <span>Food</span>
           </label>
-          <label htmlFor="others">
+          <label htmlFor="others" className={styles.categoryOption}>
             <input
+              id="others"
               type="radio"
               name="others"
               onChange={(e) => {
@@ -270,7 +276,7 @@ function Sell() {
               }}
               checked={others}
             />
-            Others
+            <span>Others</span>
           </label>
         </div>
 
