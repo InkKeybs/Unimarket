@@ -4,7 +4,7 @@
   padding: 10vh 20vw;
   display: flex;
   flex-direction: column;
-  background: linear-gradient(to bottom, var(--primary), var(--surface));
+  background: linear-gradient(to bottom, var(--bg), var(--surface));
 }
 
 #sellBox {
@@ -15,35 +15,52 @@
   width: 60vw;
   border-radius: 30px;
   padding: 10vh 10vw;
-  background-color: rgba(255, 255, 255, 0.903);
+  background-color: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
   position: relative;
-  input {
+  input[type="text"],
+  input[type="number"],
+  input[type="date"] {
     font-size: 1.3rem;
     padding: 3px 10px;
-    background-color: rgba(245, 222, 179, 0);
-    border-bottom: 1px solid rgba(0, 0, 0, 0.385);
+    background-color: #ffffff;
+    color: #111827;
+    border: 1px solid #cbd5e1;
+    border-radius: 8px;
   }
-  input:focus {
+  input[type="text"]::placeholder,
+  input[type="number"]::placeholder,
+  input[type="date"]::placeholder {
+    color: #6b7280;
+  }
+  input[type="text"]:focus,
+  input[type="number"]:focus,
+  input[type="date"]:focus {
     outline: none;
-    border-bottom: 1px solid black;
+    border: 1px solid var(--primary);
   }
   button {
     width: 50%;
     height: 2.5rem;
-    background-color: green;
+    background-color: var(--primary);
     font-size: 1.2rem;
-    color: white;
+    color: #ffffff;
     border-radius: 10px;
   }
 }
 .sellTitle {
   font-size: 3rem;
+  color: var(--text-strong);
 }
 .checkboxes {
   display: flex;
   flex-direction: row;
   justify-content: space-between;
   width: 80%;
+  label {
+    color: var(--text);
+  }
 }
 
 .sellinput {
@@ -70,8 +87,8 @@
 .fileInputLabel {
   display: inline-block;
   padding: 10px 24px;
-  background: linear-gradient(135deg, var(--primary), #000066);
-  color: white;
+  background: linear-gradient(135deg, var(--primary), #1d4ed8);
+  color: #ffffff;
   font-size: 1rem;
   font-weight: 500;
   border-radius: 10px;
@@ -84,11 +101,11 @@
 .fileHelpText {
   margin: 0;
   font-size: 0.85rem;
-  color: #4a5568;
+  color: var(--text-muted);
 }
 
 .fileInputLabel:hover {
-  background: linear-gradient(135deg, #000066, var(--primary));
+  background: linear-gradient(135deg, #1d4ed8, var(--primary));
   transform: translateY(-2px);
   box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
@@ -114,9 +131,15 @@
 }
 
 #sellBox #backButton:hover {
-  color: #FFD700;
+  color: var(--toothpaste);
   transform: translateX(-3px);
   background-color: transparent !important;
+}
+
+#sellBox img {
+  width: min(320px, 100%);
+  border-radius: 12px;
+  border: 1px solid var(--border);
 }
 
 @media only screen and (max-width: 1000px) {
@@ -126,7 +149,9 @@
   #sellBox {
     width: 90vw;
     padding: 10vh 5vw;
-    input {
+    input[type="text"],
+    input[type="number"],
+    input[type="date"] {
       font-size: 1rem;
     }
   }
