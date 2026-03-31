@@ -37,7 +37,7 @@
   --danger-strong: #ff0000;
   --gray: #666666;
   --border: #444444;
-  --surface: #000000;
+  --surface: #111111;
   --text-muted: #cccccc;
   --text-strong: #ffffff;
 }
@@ -124,4 +124,39 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .product-text {
     color: var(--primary);
+}
+
+.themeToggle {
+  position: fixed;
+  left: 16px;
+  bottom: 16px;
+  z-index: 1200;
+  min-width: 78px;
+  height: 40px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.themeToggle:hover {
+  filter: brightness(0.96);
+}
+
+.themeToggle:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+@media only screen and (max-width: 1000px) {
+  .themeToggle {
+    left: 12px;
+    bottom: 12px;
+    min-width: 72px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 }

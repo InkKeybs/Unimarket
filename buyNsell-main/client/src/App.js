@@ -1,6 +1,7 @@
 import Register from "./pages/Register";
 import EmailVerify from "./pages/EmailVerify";
 import { Routes, Route } from "react-router-dom";
+import { useEffect, useState } from "react";
 import Sell from "./pages/Sell";
 import Home from "./pages/Home";
 import Login from "./pages/Login";
@@ -12,10 +13,37 @@ import Chat from "./pages/Chat";
 import Admin from "./pages/Admin";
 import ChatWidget from "./components/ChatWidget/ChatWidget";
 
+const THEME_STORAGE_KEY = "theme";
+
 function App() {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const storedTheme = localStorage.getItem(THEME_STORAGE_KEY);
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    const darkEnabled = storedTheme ? storedTheme === "dark" : prefersDark;
+    setIsDark(darkEnabled);
+  }, []);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle("dark", isDark);
+    localStorage.setItem(THEME_STORAGE_KEY, isDark ? "dark" : "light");
+  }, [isDark]);
 
   return (
     <>
+      <button
+        type="button"
+        className={`themeToggle ${isDark ? "isDark" : "isLight"}`}
+        onClick={() => setIsDark((prev) => !prev)}
+        aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+        title={isDark ? "Switch to light mode" : "Switch to dark mode"}
+      >
+        <span className="themeToggleIcon" aria-hidden="true"></span>
+        <span className="srOnly">
+          {isDark ? "Switch to light mode" : "Switch to dark mode"}
+        </span>
+      </button>
       <Routes>
         <Route path="/" element={<Home />} />
         <Route path="/login" element={<Login />} />
