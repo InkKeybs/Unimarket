@@ -1,22 +1,11 @@
 require('dotenv').config();
-const mongoose = require('mongoose');
 const bcrypt = require('bcrypt');
-const User = require('../models/user');
+const crypto = require('crypto');
+const { getTursoClient } = require('../db/tursoClient');
+const { toSqliteDatetime } = require('../db/sqlHelpers');
 
 async function run() {
-  if (!process.env.ATLAS_KEY) {
-    console.error('Please set ATLAS_KEY in your .env to connect to MongoDB');
-    process.exit(1);
-  }
-
-  const connectOptions = {};
-  if (process.env.DB_NAME) {
-    connectOptions.dbName = process.env.DB_NAME;
-  }
-
-  const atlas = process.env.ATLAS_KEY;
-  await mongoose.connect(atlas, connectOptions);
-  console.log(`Connected to MongoDB database: ${mongoose.connection.name}`);
+  const client = getTursoClient();
 
   const email = process.env.SEED_USER_EMAIL || 'testuser@example.com';
   const password = process.env.SEED_USER_PASSWORD || 'TestPass123!';
@@ -27,8 +16,11 @@ async function run() {
   const course = process.env.SEED_USER_COURSE || 'Computer Science';
 
   try {
-    const existing = await User.findOne({ mail: email });
-    if (existing) {
+    const existing = await client.execute({
+      sql: 'SELECT id FROM users WHERE LOWER(mail) = LOWER(?) LIMIT 1',
+      args: [email],
+    });
+    if (existing.rows.length > 0) {
       console.log(`User with email ${email} already exists. Exiting.`);
       process.exit(0);
     }
@@ -37,19 +29,25 @@ async function run() {
     const salt = await bcrypt.genSalt(saltRounds);
     const hashPassword = await bcrypt.hash(password, salt);
 
-    const user = new User({
-      name,
-      mail: email,
-      year,
-      address,
-      phone,
-      password: hashPassword,
-      course,
-      verified: true,
-      role: 'user',
+    const now = toSqliteDatetime(new Date());
+    await client.execute({
+      sql: `INSERT INTO users
+            (id, name, mail, year, address, phone, password, course, verified, role, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'user', ?, ?)`,
+      args: [
+        crypto.randomUUID(),
+        name,
+        email,
+        year,
+        address,
+        String(phone),
+        hashPassword,
+        course,
+        now,
+        now,
+      ],
     });
 
-    await user.save();
     console.log('Seed user created successfully:');
     console.log(`  email: ${email}`);
     console.log(`  password: ${password}`);

@@ -1,45 +1,30 @@
 require("dotenv").config();
-const mongoose = require("mongoose");
-
-const User = require("../models/user");
-const Token = require("../models/token");
-const Otp = require("../models/otp");
-const Product = require("../models/products");
-const Bid = require("../models/bid");
-const Message = require("../models/message");
-const UserToken = require("../models/userToken");
+const { getTursoClient } = require("../db/tursoClient");
 
 async function run() {
-  if (!process.env.ATLAS_KEY) {
-    console.error("Please set ATLAS_KEY in your .env to connect to MongoDB");
-    process.exit(1);
-  }
-
   try {
-    const connectOptions = {};
-    if (process.env.DB_NAME) {
-      connectOptions.dbName = process.env.DB_NAME;
-    }
+    const client = getTursoClient();
 
-    await mongoose.connect(process.env.ATLAS_KEY, connectOptions);
-    console.log(`Connected to MongoDB database: ${mongoose.connection.name}`);
-
-    const collections = [
-      { name: "users", model: User },
-      { name: "tokens", model: Token },
-      { name: "otps", model: Otp },
-      { name: "products", model: Product },
-      { name: "bids", model: Bid },
-      { name: "messages", model: Message },
-      { name: "userTokens", model: UserToken },
+    const tables = [
+      "bid_entries",
+      "bids",
+      "messages",
+      "otps",
+      "verification_tokens",
+      "user_tokens",
+      "products",
+      "users",
     ];
 
-    for (const collection of collections) {
-      const beforeCount = await collection.model.countDocuments({});
-      const result = await collection.model.deleteMany({});
-      const afterCount = await collection.model.countDocuments({});
+    for (const table of tables) {
+      const before = await client.execute(`SELECT COUNT(*) AS count FROM ${table}`);
+      await client.execute(`DELETE FROM ${table}`);
+      const after = await client.execute(`SELECT COUNT(*) AS count FROM ${table}`);
+
+      const beforeCount = Number(before.rows?.[0]?.count || 0);
+      const afterCount = Number(after.rows?.[0]?.count || 0);
       console.log(
-        `Cleared ${collection.name}: ${result.deletedCount} removed (before: ${beforeCount}, after: ${afterCount})`
+        `Cleared ${table}: ${beforeCount - afterCount} removed (before: ${beforeCount}, after: ${afterCount})`
       );
     }
 

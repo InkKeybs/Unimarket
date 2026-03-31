@@ -10,8 +10,7 @@
     "seed:user": "node scripts/seedUser.js",
     "seed:admin": "node scripts/seedAdmin.js",
     "clear:db": "node scripts/clearDatabase.js",
-    "db:init:turso": "node scripts/initTursoSchema.js",
-    "db:migrate:mongo-to-turso": "node scripts/migrateMongoToTurso.js"
+    "db:init:turso": "node scripts/initTursoSchema.js"
   },
   "keywords": [],
   "author": "",
@@ -27,7 +26,6 @@
     "joi": "^17.8.4",
     "joi-password-complexity": "^5.1.0",
     "jsonwebtoken": "^9.0.0",
-    "mongoose": "^7.0.0",
     "multer": "^1.4.5-lts.1",
     "nodemailer": "^6.9.1"
   },

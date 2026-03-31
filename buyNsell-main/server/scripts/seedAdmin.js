@@ -1,21 +1,11 @@
 require("dotenv").config();
-const mongoose = require("mongoose");
 const bcrypt = require("bcrypt");
-const User = require("../models/user");
+const crypto = require("crypto");
+const { getTursoClient } = require("../db/tursoClient");
+const { toSqliteDatetime } = require("../db/sqlHelpers");
 
 async function run() {
-  if (!process.env.ATLAS_KEY) {
-    console.error("Please set ATLAS_KEY in your .env to connect to MongoDB");
-    process.exit(1);
-  }
-
-  const connectOptions = {};
-  if (process.env.DB_NAME) {
-    connectOptions.dbName = process.env.DB_NAME;
-  }
-
-  await mongoose.connect(process.env.ATLAS_KEY, connectOptions);
-  console.log(`Connected to MongoDB database: ${mongoose.connection.name}`);
+  const client = getTursoClient();
 
   const email = process.env.SEED_ADMIN_EMAIL || "admin@rtu.edu.ph";
   const password = process.env.SEED_ADMIN_PASSWORD || "AdminPass123!";
@@ -26,11 +16,16 @@ async function run() {
   const course = process.env.SEED_ADMIN_COURSE || "Administration";
 
   try {
-    const existing = await User.findOne({ mail: email });
-    if (existing) {
-      existing.role = "admin";
-      existing.verified = true;
-      await existing.save();
+    const existingResult = await client.execute({
+      sql: "SELECT id FROM users WHERE LOWER(mail) = LOWER(?) LIMIT 1",
+      args: [email],
+    });
+
+    if (existingResult.rows.length > 0) {
+      await client.execute({
+        sql: "UPDATE users SET role = 'admin', verified = 1, updated_at = ? WHERE id = ?",
+        args: [toSqliteDatetime(new Date()), existingResult.rows[0].id],
+      });
       console.log(`Existing user ${email} promoted to admin.`);
       process.exit(0);
     }
@@ -39,19 +34,25 @@ async function run() {
     const salt = await bcrypt.genSalt(saltRounds);
     const hashPassword = await bcrypt.hash(password, salt);
 
-    const adminUser = new User({
-      name,
-      mail: email,
-      year,
-      address,
-      phone,
-      password: hashPassword,
-      course,
-      verified: true,
-      role: "admin",
+    const now = toSqliteDatetime(new Date());
+    await client.execute({
+      sql: `INSERT INTO users
+            (id, name, mail, year, address, phone, password, course, verified, role, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'admin', ?, ?)`,
+      args: [
+        crypto.randomUUID(),
+        name,
+        email,
+        year,
+        address,
+        String(phone),
+        hashPassword,
+        course,
+        now,
+        now,
+      ],
     });
 
-    await adminUser.save();
     console.log("Admin user created successfully:");
     console.log(`  email: ${email}`);
     console.log(`  password: ${password}`);

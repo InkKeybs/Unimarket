@@ -1,9 +1,10 @@
 const buyNsellRouter = require("./routes/buyNsell");
-const Product = require("./models/products");
 const bodyParser = require("body-parser");
-const mongoose = require("mongoose");
 const express = require("express");
 const cors = require("cors");
+const fs = require("fs");
+const path = require("path");
+const { getTursoClient } = require("./db/tursoClient");
 require("dotenv").config();
 const app = express();
 app.use(bodyParser.json({ limit: '50mb' }));
@@ -49,39 +50,44 @@ app.use(
   })
 );
 
-mongoose.set("strictQuery", false);
 app.use(express.urlencoded({ extended: false }));
 
-const ensureIndexesOnStartup = async () => {
-  // Keep sort-critical indexes present in production even if autoIndex is disabled.
-  if (process.env.ENSURE_INDEXES_ON_STARTUP === "false") {
+const ensureSchemaOnStartup = async () => {
+  if (process.env.ENSURE_SCHEMA_ON_STARTUP === "false") {
     return;
   }
 
   try {
-    await Product.createIndexes();
-    console.log("Product indexes ensured");
+    const schemaPath = path.join(__dirname, "db", "schema.sql");
+    const schemaSql = fs.readFileSync(schemaPath, "utf8");
+    const statements = schemaSql
+      .split(";")
+      .map((statement) => statement.trim())
+      .filter(Boolean);
+
+    const client = getTursoClient();
+    for (const statement of statements) {
+      await client.execute(statement);
+    }
+
+    console.log("Turso schema ensured on startup");
   } catch (error) {
-    console.log("Failed to ensure product indexes:", error?.message || error);
+    console.log("Failed to ensure Turso schema:", error?.message || error);
   }
 };
 
-if (process.env.ATLAS_KEY) {
-  const connectOptions = {};
-  if (process.env.DB_NAME) {
-    connectOptions.dbName = process.env.DB_NAME;
+const verifyTursoConnection = async () => {
+  try {
+    const client = getTursoClient();
+    await client.execute("SELECT 1");
+    console.log("Connected to Turso/SQLite database");
+  } catch (error) {
+    console.log("Database connection error:", error?.message || error);
   }
+};
 
-  mongoose
-    .connect(`${process.env.ATLAS_KEY}`, connectOptions)
-    .then(async () => {
-      console.log(`connected to db: ${mongoose.connection.name}`);
-      await ensureIndexesOnStartup();
-    })
-    .catch((err) => console.log("DB connection error:", err));
-} else {
-  console.log("ATLAS_KEY not set — skipping MongoDB connection. Set ATLAS_KEY in .env to connect to your database.");
-}
+verifyTursoConnection();
+ensureSchemaOnStartup();
 
 const PORT = process.env.PORT || 5000;
 

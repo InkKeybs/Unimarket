@@ -257,8 +257,9 @@ const isApprovedProduct = (product) =>
   !product?.status || product.status === PRODUCT_APPROVAL_STATUS.APPROVED;
 
 const isProductExpired = (product) => {
-  if (!product?.expiresAt) return false;
-  return new Date(product.expiresAt) <= new Date();
+  const expiresAt = product?.expires_at || product?.expiresAt;
+  if (!expiresAt) return false;
+  return new Date(expiresAt) <= new Date();
 };
 
 const canViewProduct = (product, user) => {
@@ -285,7 +286,9 @@ const canViewProduct = (product, user) => {
   }
 
   // Seller can always see their own listing (to renew, etc.)
-  return product.id?.toString() === user._id?.toString();
+  const productOwnerId = product.seller_id || product.id;
+  const viewerId = user.id || user._id;
+  return productOwnerId?.toString() === viewerId?.toString();
 };
 
 const requireAdminUser = async (req, res) => {
@@ -851,18 +854,30 @@ const delToken = async (req, res) => {
 const fixdeal = async (req, res) => {
   try {
     const { productid, sellerid, buyerid } = req.body;
-    const { pname, pprice, pimage } = await Product.findById(productid);
-    var findata = { pname: pname, productprice: pprice, pimage: pimage };
-    const biddata = await Bid.findOne({ prodId: productid });
-    for (let i = 0; i < biddata.bids.length; i++) {
-      if (biddata.bids[i].buyerId.toString() === buyerid) {
-        findata = { ...findata, bidprice: biddata.bids[i].bidPrice };
+    const product = await getProductById(productid);
+    if (!product) {
+      return res.status(404).send({ error: true, message: "Product not found" });
+    }
+
+    let findata = {
+      pname: product.pname,
+      productprice: product.pprice,
+      pimage: product.pimage,
+    };
+
+    const biddata = await getBidForProduct(productid);
+    for (const bidEntry of biddata?.bids || []) {
+      if (bidEntry.buyer_id?.toString() === buyerid?.toString()) {
+        findata = { ...findata, bidprice: bidEntry.bid_price };
         break;
       }
     }
-    const { name, mail } = await User.findById(buyerid);
-    findata = { ...findata, buyername: name };
-    findata = { ...findata, mail: mail };
+
+    const buyer = await getUserById(buyerid);
+    if (buyer) {
+      findata = { ...findata, buyername: buyer.name, mail: buyer.mail };
+    }
+
     res.status(200).send({ fixdeal: findata });
   } catch (error) {
     console.log(error);
@@ -1028,12 +1043,29 @@ const searchproduct = async (req, res) => {
   }
 };
 
+const toLegacyBidPayload = (bidRecord) => {
+  if (!bidRecord) {
+    return null;
+  }
+
+  return {
+    prodId: bidRecord.product_id,
+    sellerId: bidRecord.seller_id || "",
+    bids: (bidRecord.bids || []).map((entry) => ({
+      buyerId: entry.buyer_id,
+      bidPrice: entry.bid_price,
+      bidTime: entry.bid_time,
+      regno: entry.regno,
+      cancel: fromBoolInt(entry.cancelled),
+    })),
+  };
+};
+
 const prodData = async (req, res) => {
   try {
     const id = req.body.id;
     const requestingUser = await getUserFromRefreshToken(req.body.token);
-    console.log(id);
-    const data = await Product.findById(id);
+    const data = await getProductById(id);
     if (!data) {
       return res.status(404).send({ error: true, message: "Product not found" });
     }
@@ -1048,13 +1080,15 @@ const prodData = async (req, res) => {
       });
     }
 
-    const bid = await Bid.findOne({ prodId: id });
-    const seller = await User.findById(data.id);
+    const bid = await getBidForProduct(id);
+    const seller = await getUserById(data.seller_id || data.id);
     if (!seller) {
       return res.status(404).send({ error: true, message: "Seller not found" });
     }
 
-    const { name, mail, phone, sellerVerified, sellerRating, sellerRatingCount } = seller;
+    const sellerVerified = fromBoolInt(seller.seller_verified ?? seller.sellerVerified);
+    const sellerRating = Number(seller.seller_rating ?? seller.sellerRating ?? 0);
+    const sellerRatingCount = Number(seller.seller_rating_count ?? seller.sellerRatingCount ?? 0);
     const isExpired = isProductExpired(data);
     res
       .status(200)
@@ -1062,13 +1096,13 @@ const prodData = async (req, res) => {
         error: false,
         details: {
           data,
-          bid,
-          name,
-          mail,
-          phone,
-          sellerVerified: Boolean(sellerVerified),
-          sellerRating: Number(sellerRating || 0),
-          sellerRatingCount: Number(sellerRatingCount || 0),
+          bid: toLegacyBidPayload(bid),
+          name: seller.name,
+          mail: seller.mail,
+          phone: seller.phone,
+          sellerVerified,
+          sellerRating,
+          sellerRatingCount,
         },
         isExpired,
       });
@@ -1187,10 +1221,6 @@ const rejectProduct = async (req, res) => {
     res.status(400).send({ error: true, message: "Failed to reject product" });
   }
 };
-    console.log(error);
-    res.status(400).send({ error: true, message: "Failed to reject product" });
-  }
-};
 
 const getAdminAllProducts = async (req, res) => {
   try {
@@ -1198,20 +1228,28 @@ const getAdminAllProducts = async (req, res) => {
     if (!adminUser) return;
 
     const { search, statusFilter } = req.body;
-    const query = {};
+    const client = getTursoClient();
+    const where = [];
+    const args = [];
+
     if (statusFilter && ["pending", "approved", "rejected"].includes(statusFilter)) {
-      query.status = statusFilter;
-    }
-    if (search && search.trim()) {
-      const pattern = new RegExp(search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i");
-      query.$or = [{ pname: pattern }, { pcat: pattern }];
+      where.push("status = ?");
+      args.push(statusFilter);
     }
 
-    const products = await Product.find(query)
-      .sort({ preg: -1 })
-      .setOptions({ allowDiskUse: true })
-      .lean();
-    res.status(200).send({ error: false, details: products });
+    if (search && search.trim()) {
+      const pattern = `%${search.trim()}%`;
+      where.push("(pname LIKE ? OR pcat LIKE ?)");
+      args.push(pattern, pattern);
+    }
+
+    const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+    const result = await client.execute({
+      sql: `SELECT * FROM products ${whereClause} ORDER BY preg DESC`,
+      args,
+    });
+
+    res.status(200).send({ error: false, details: result.rows || [] });
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true, message: "Failed to fetch products" });
@@ -1224,13 +1262,19 @@ const adminDeleteProduct = async (req, res) => {
     if (!adminUser) return;
 
     const { productId } = req.body;
-    const product = await Product.findById(productId);
+    const client = getTursoClient();
+    const product = await getProductById(productId);
     if (!product) {
       return res.status(404).send({ error: true, message: "Product not found" });
     }
 
-    await Product.deleteOne({ _id: productId });
-    await Bid.deleteOne({ prodId: productId });
+    await client.execute({
+      sql: "DELETE FROM bid_entries WHERE bid_id IN (SELECT id FROM bids WHERE product_id = ?)",
+      args: [productId],
+    });
+    await client.execute({ sql: "DELETE FROM bids WHERE product_id = ?", args: [productId] });
+    await client.execute({ sql: "DELETE FROM messages WHERE product_id = ?", args: [productId] });
+    await client.execute({ sql: "DELETE FROM products WHERE id = ?", args: [productId] });
 
     res.status(200).send({ error: false, message: "Product deleted" });
   } catch (error) {
@@ -1241,49 +1285,49 @@ const adminDeleteProduct = async (req, res) => {
 
 const addbid = async (req, res) => {
   try {
+    const client = getTursoClient();
     const { biddata } = req.body;
-    console.log("Adding bid:", biddata);
-    const bidDataFromDB = await Bid.findOne({
-      prodId: biddata.pid,
-    });
-    const { mail } = await User.findById(biddata.buyerId);
-    const reg = mail.slice(0, 6);
-    if (!bidDataFromDB) {
-      const newData = {
-        prodId: biddata.pid,
-        sellerId: biddata.sellerId,
-        bids: [
-          {
-            buyerId: biddata.buyerId,
-            bidPrice: biddata.bidPrice,
-            bidTime: biddata.bidTime,
-            regno: reg,
-            cancel: false,
-          },
-        ],
-      };
-      console.log("Creating new bid document:", newData);
-      await Bid.create(newData);
-    } else {
-      console.log("Adding bid to existing document");
-      bidDataFromDB.bids.push({
-        buyerId: biddata.buyerId,
-        bidPrice: biddata.bidPrice,
-        bidTime: biddata.bidTime,
-        regno: reg,
-        cancel: false,
-      });
-      await Bid.updateOne(
-        { prodId: biddata.pid, sellerId: biddata.sellerId },
-        bidDataFromDB
-      );
+    let bidDataFromDB = await getBidForProduct(biddata.pid);
+    const buyer = await getUserById(biddata.buyerId);
+    if (!buyer) {
+      return res.status(404).send({ error: true, message: "Buyer not found" });
     }
-    const dataFromdb = await Bid.findOne({
-      prodId: biddata.pid,
-      sellerId: biddata.sellerId,
+
+    const reg = (buyer.mail || "").slice(0, 6);
+
+    if (!bidDataFromDB) {
+      const bidId = crypto.randomUUID();
+      await client.execute({
+        sql: `INSERT INTO bids (id, product_id, seller_id, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?)`,
+        args: [
+          bidId,
+          biddata.pid,
+          biddata.sellerId,
+          toSqliteDatetime(new Date()),
+          toSqliteDatetime(new Date()),
+        ],
+      });
+      bidDataFromDB = { id: bidId };
+    }
+
+    await client.execute({
+      sql: `INSERT INTO bid_entries (id, bid_id, buyer_id, bid_price, bid_time, regno, cancelled, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?)`,
+      args: [
+        crypto.randomUUID(),
+        bidDataFromDB.id,
+        biddata.buyerId,
+        biddata.bidPrice,
+        toSqliteDatetime(biddata.bidTime || new Date()),
+        reg,
+        toSqliteDatetime(new Date()),
+        toSqliteDatetime(new Date()),
+      ],
     });
-    console.log("Bid saved successfully:", dataFromdb);
-    res.status(200).send({ details: { bid: dataFromdb } });
+
+    const dataFromdb = await getBidForProduct(biddata.pid);
+    res.status(200).send({ details: { bid: toLegacyBidPayload(dataFromdb) } });
   } catch (err) {
     console.log("Error in addbid:", err);
     res.status(500).send({ error: true, message: "Failed to add bid" });
@@ -1292,24 +1336,20 @@ const addbid = async (req, res) => {
 
 const removebid = async (req, res) => {
   try {
+    const client = getTursoClient();
     const { productid, buyerId } = req.body;
-    var bid = await Bid.findOne({ prodId: productid });
-    console.log(bid, buyerId);
-    var arr = [];
-    for (let i = 0; i < bid.bids.length; i++) {
-      if (bid.bids[i].buyerId.toString() !== buyerId) {
-        console.log(
-          bid.bids[i].buyerId,
-          buyerId,
-          bid.bids[i].buyerId !== buyerId
-        );
-        arr.push(bid.bids[i]);
-      }
+    const bid = await getBidForProduct(productid);
+    if (!bid) {
+      return res.status(200).send({ error: false, details: { bid: null } });
     }
-    console.log(arr);
-    bid.bids = arr;
-    await Bid.updateOne({ prodId: productid }, bid);
-    res.status(200).send({ error: false, details: { bid: bid } });
+
+    await client.execute({
+      sql: "DELETE FROM bid_entries WHERE bid_id = ? AND buyer_id = ?",
+      args: [bid.id, buyerId],
+    });
+
+    const updatedBid = await getBidForProduct(productid);
+    res.status(200).send({ error: false, details: { bid: toLegacyBidPayload(updatedBid) } });
   } catch (error) {
     console.log(error);
     res.status(302).send({ error: true });
@@ -1318,11 +1358,21 @@ const removebid = async (req, res) => {
 
 const confirmdeal = async (req, res) => {
   try {
+    const client = getTursoClient();
     const { productid, sellerid, mail, productname, bprice } = req.body;
-    const sellerinfo = await User.findById(sellerid);
-    await Product.deleteOne({ _id: productid });
-    await Bid.deleteOne({ prodId: productid });
-    console.log(sellerinfo);
+    const sellerinfo = await getUserById(sellerid);
+    if (!sellerinfo) {
+      return res.status(404).send({ error: true, message: "Seller not found" });
+    }
+
+    await client.execute({
+      sql: "DELETE FROM bid_entries WHERE bid_id IN (SELECT id FROM bids WHERE product_id = ?)",
+      args: [productid],
+    });
+    await client.execute({ sql: "DELETE FROM bids WHERE product_id = ?", args: [productid] });
+    await client.execute({ sql: "DELETE FROM messages WHERE product_id = ?", args: [productid] });
+    await client.execute({ sql: "DELETE FROM products WHERE id = ?", args: [productid] });
+
     const text = `Hi, I am ${sellerinfo.name}, and I look forward to fixing the deal of ${productname} for ₱${bprice}.\nYou can find my contact details attached here\nAddress: ${sellerinfo.address}\nPhone  : ${sellerinfo.phone}\nEmail  : ${sellerinfo.mail}`;
     await sendEmail(mail, "Confirm Deal", text);
     res.status(200).send({ error: false });
@@ -1334,60 +1384,63 @@ const confirmdeal = async (req, res) => {
 
 const cancelnotification = async (req, res) => {
   try {
+    const client = getTursoClient();
     const { prodid, bid } = req.body;
-    var notifitcation = await Bid.findOne({ prodId: prodid });
-    for (let i = 0; i < notifitcation.bids.length; i++) {
-      if (notifitcation.bids[i].buyerId.toString() === bid) {
-        notifitcation.bids[i].cancel = true;
-      }
+    const targetBid = await getBidForProduct(prodid);
+    if (!targetBid) {
+      return res.status(200).send({ allNotifications: [] });
     }
-    await Bid.updateOne({ prodId: prodid }, notifitcation);
 
-    var findata = [];
-    const sellerid = notifitcation.sellerId;
-    notifitcation = await Bid.find({ sellerId: sellerid });
-    console.log(notifitcation);
-    for (let i = 0; i < notifitcation.length; i++) {
-      const { id, pimage, pname } = await Product.findById(
-        notifitcation[i].prodId
-      );
-      for (let j = 0; j < notifitcation[i].bids.length; j++) {
-        const { name } = await User.findById(notifitcation[i].bids[j].buyerId);
-        if (notifitcation[i].bids[j].cancel === false) {
-          findata.push({
-            prodId: notifitcation[i].prodId,
-            href: `/buy-product/${notifitcation[i].prodId}/${id}/${notifitcation[i].bids[j].buyerId}`,
-            imageURL: pimage,
-            reg: name,
-            pname: pname,
-            bprice: notifitcation[i].bids[j].bidPrice,
-            cancel: notifitcation[i].bids[j].cancel,
-            bid: notifitcation[i].bids[j].buyerId,
-          });
-        }
-      }
-    }
-    console.log(findata);
+    await client.execute({
+      sql: "UPDATE bid_entries SET cancelled = 1, updated_at = ? WHERE bid_id = ? AND buyer_id = ?",
+      args: [toSqliteDatetime(new Date()), targetBid.id, bid],
+    });
+
+    const result = await client.execute({
+      sql: `SELECT b.product_id, b.seller_id, p.pimage, p.pname, be.buyer_id, be.bid_price, be.cancelled, u.name AS buyer_name
+            FROM bids b
+            JOIN bid_entries be ON be.bid_id = b.id
+            JOIN products p ON p.id = b.product_id
+            LEFT JOIN users u ON u.id = be.buyer_id
+            WHERE b.seller_id = ?
+            ORDER BY be.bid_time DESC`,
+      args: [targetBid.seller_id],
+    });
+
+    const findata = (result.rows || [])
+      .filter((row) => !fromBoolInt(row.cancelled))
+      .map((row) => ({
+        prodId: row.product_id,
+        href: `/buy-product/${row.product_id}/${row.seller_id}/${row.buyer_id}`,
+        imageURL: row.pimage,
+        reg: row.buyer_name,
+        pname: row.pname,
+        bprice: row.bid_price,
+        cancel: false,
+        bid: row.buyer_id,
+      }));
+
     res.status(200).send({ allNotifications: findata });
   } catch (error) {
+    console.log(error);
     res.status(400).send({ error: true });
   }
 };
 
 const deletemybid = async (req, res) => {
   try {
+    const client = getTursoClient();
     const { pid, bid } = req.body;
-    console.log(pid, bid);
-    var biddata = await Bid.findOne({ prodId: pid });
-    var arr = [];
-    for (let i = 0; i < biddata.bids.length; i++) {
-      if (biddata.bids[i].buyerId.toString() !== bid) {
-        arr.push(biddata.bids[i]);
-      }
+    const biddata = await getBidForProduct(pid);
+    if (!biddata) {
+      return res.status(200).send({ error: false });
     }
-    biddata.bids = arr;
-    await Bid.updateOne({ prodId: pid }, biddata);
-    console.log(biddata);
+
+    await client.execute({
+      sql: "DELETE FROM bid_entries WHERE bid_id = ? AND buyer_id = ?",
+      args: [biddata.id, bid],
+    });
+
     res.status(200).send({ error: false });
   } catch (error) {
     console.log(error);
@@ -1397,41 +1450,26 @@ const deletemybid = async (req, res) => {
 
 const acceptbid = async (req, res) => {
   try {
+    const client = getTursoClient();
     const { prodId, buyer, bprice } = req.body;
-    console.log("Accepting bid:", { prodId, buyer, bprice });
-    
-    // Mark product as sold
-    await Product.updateOne(
-      { _id: prodId },
-      { 
-        sold: true,
-        soldTo: buyer,
-        soldPrice: bprice
-      }
-    );
-    
-    // Cancel all other bids for this product
-    const bidDoc = await Bid.findOne({ prodId: prodId });
+    await client.execute({
+      sql: "UPDATE products SET sold = 1, sold_to = ?, sold_price = ?, updated_at = ? WHERE id = ?",
+      args: [buyer, bprice, toSqliteDatetime(new Date()), prodId],
+    });
+
+    const bidDoc = await getBidForProduct(prodId);
     if (bidDoc) {
-      bidDoc.bids.forEach(bid => {
-        if (bid.buyerId.toString() !== buyer.toString()) {
-          bid.cancel = true;
-        }
+      await client.execute({
+        sql: "UPDATE bid_entries SET cancelled = 1, updated_at = ? WHERE bid_id = ? AND buyer_id <> ?",
+        args: [toSqliteDatetime(new Date()), bidDoc.id, buyer],
       });
-      await bidDoc.save();
     }
-    
-    // Get buyer info for notification
-    const buyerUser = await User.findById(buyer);
-    
+
+    const buyerUser = await getUserById(buyer);
     if (!buyerUser) {
-      console.log("Buyer not found");
       return res.status(400).send({ error: true, message: "Buyer not found" });
     }
-    
-    // In a real app, you'd send an email here
-    console.log(`Product sold to ${buyerUser.name} (${buyerUser.mail}) for ₱${bprice}`);
-    
+
     res.status(200).send({ 
       success: true, 
       message: "Bid accepted and product marked as sold",
@@ -1445,6 +1483,7 @@ const acceptbid = async (req, res) => {
 
 const rejectbid = async (req, res) => {
   try {
+    const client = getTursoClient();
     const { prodId, buyer } = req.body;
     
     if (!prodId || !buyer) {
@@ -1452,17 +1491,15 @@ const rejectbid = async (req, res) => {
       return res.status(400).send({ error: true, message: "Missing required parameters" });
     }
 
-    // Find the bid document
-    const bidDoc = await Bid.findOne({ prodId: prodId });
-    
+    const bidDoc = await getBidForProduct(prodId);
     if (!bidDoc) {
       return res.status(404).send({ error: true, message: "Bid not found" });
     }
 
-    // Remove the specific bid
-    bidDoc.bids = bidDoc.bids.filter(bid => bid.buyerId.toString() !== buyer.toString());
-    
-    await bidDoc.save();
+    await client.execute({
+      sql: "DELETE FROM bid_entries WHERE bid_id = ? AND buyer_id = ?",
+      args: [bidDoc.id, buyer],
+    });
     
     res.status(200).send({ 
       success: true, 
@@ -1483,14 +1520,13 @@ const sendMessage = async (req, res) => {
       return res.status(400).send({ error: true, message: "Missing required fields" });
     }
 
-    const newMessage = new Message({
+    await saveMessageDb({
       productId,
       senderId,
       receiverId,
       message,
     });
 
-    await newMessage.save();
     res.status(200).send({ error: false, message: "Message sent successfully" });
   } catch (error) {
     console.log("Error sending message:", error);
@@ -1501,33 +1537,41 @@ const sendMessage = async (req, res) => {
 // Get messages for a conversation
 const getMessages = async (req, res) => {
   try {
+    const client = getTursoClient();
     const { productId, userId, otherUserId } = req.body;
 
     if (!productId || !userId || !otherUserId) {
       return res.status(400).send({ error: true, message: "Missing required fields" });
     }
 
-    const messages = await Message.find({
-      productId: productId,
-      $or: [
-        { senderId: userId, receiverId: otherUserId },
-        { senderId: otherUserId, receiverId: userId },
-      ],
-    })
-      .sort({ timestamp: 1 })
-      .populate("senderId", "name")
-      .populate("receiverId", "name");
+    const result = await client.execute({
+      sql: `SELECT m.*, su.name AS sender_name, ru.name AS receiver_name
+            FROM messages m
+            LEFT JOIN users su ON su.id = m.sender_id
+            LEFT JOIN users ru ON ru.id = m.receiver_id
+            WHERE m.product_id = ?
+              AND ((m.sender_id = ? AND m.receiver_id = ?) OR (m.sender_id = ? AND m.receiver_id = ?))
+            ORDER BY m.timestamp ASC`,
+      args: [productId, userId, otherUserId, otherUserId, userId],
+    });
 
-    // Mark messages as read
-    await Message.updateMany(
-      {
-        productId: productId,
-        receiverId: userId,
-        senderId: otherUserId,
-        read: false,
+    await markMessagesAsRead(productId, userId, otherUserId);
+
+    const messages = (result.rows || []).map((row) => ({
+      _id: row.id,
+      productId: row.product_id,
+      senderId: {
+        _id: row.sender_id,
+        name: row.sender_name,
       },
-      { read: true }
-    );
+      receiverId: {
+        _id: row.receiver_id,
+        name: row.receiver_name,
+      },
+      message: row.message,
+      timestamp: row.timestamp,
+      read: fromBoolInt(row.is_read),
+    }));
 
     res.status(200).send({ error: false, messages });
   } catch (error) {
@@ -1539,50 +1583,55 @@ const getMessages = async (req, res) => {
 // Get all chat conversations for a user
 const getChatList = async (req, res) => {
   try {
+    const client = getTursoClient();
     const { userId } = req.body;
 
     if (!userId) {
       return res.status(400).send({ error: true, message: "User ID required" });
     }
 
-    // Get unique conversations
-    const messages = await Message.find({
-      $or: [{ senderId: userId }, { receiverId: userId }],
-    })
-      .populate("senderId", "name")
-      .populate("receiverId", "name")
-      .populate("productId", "pname pimage")
-      .sort({ timestamp: -1 });
+    const result = await client.execute({
+      sql: `SELECT m.*, p.pname, p.pimage,
+                   su.name AS sender_name, ru.name AS receiver_name
+            FROM messages m
+            LEFT JOIN products p ON p.id = m.product_id
+            LEFT JOIN users su ON su.id = m.sender_id
+            LEFT JOIN users ru ON ru.id = m.receiver_id
+            WHERE m.sender_id = ? OR m.receiver_id = ?
+            ORDER BY m.timestamp DESC`,
+      args: [userId, userId],
+    });
 
-    // Group by conversation (productId + other user)
     const conversationsMap = new Map();
-    
-    for (const msg of messages) {
-      // Skip malformed messages to avoid crashes
-      if (!msg.senderId || !msg.receiverId || !msg.productId) {
+
+    for (const msg of result.rows || []) {
+      if (!msg.sender_id || !msg.receiver_id || !msg.product_id) {
         continue;
       }
 
-      const otherUserId = msg.senderId._id.toString() === userId ? msg.receiverId._id : msg.senderId._id;
-      const key = `${msg.productId._id}_${otherUserId}`;
-      
+      const otherUserId = msg.sender_id === userId ? msg.receiver_id : msg.sender_id;
+      const otherUserName = msg.sender_id === userId ? msg.receiver_name : msg.sender_name;
+      const key = `${msg.product_id}_${otherUserId}`;
+
       if (!conversationsMap.has(key)) {
-        const unreadCount = await Message.countDocuments({
-          productId: msg.productId._id,
-          receiverId: userId,
-          senderId: otherUserId,
-          read: false,
+        const unreadResult = await client.execute({
+          sql: `SELECT COUNT(*) AS count
+                FROM messages
+                WHERE product_id = ? AND receiver_id = ? AND sender_id = ? AND is_read = 0`,
+          args: [msg.product_id, userId, otherUserId],
         });
 
+        const unreadCount = Number(unreadResult.rows?.[0]?.count || 0);
+
         conversationsMap.set(key, {
-          productId: msg.productId._id,
-          productName: msg.productId.pname,
-          productImage: msg.productId.pimage,
-          otherUserId: otherUserId,
-          otherUserName: msg.senderId._id.toString() === userId ? msg.receiverId.name : msg.senderId.name,
+          productId: msg.product_id,
+          productName: msg.pname,
+          productImage: msg.pimage,
+          otherUserId,
+          otherUserName,
           lastMessage: msg.message,
           lastMessageTime: msg.timestamp,
-          unreadCount: unreadCount,
+          unreadCount,
         });
       }
     }
@@ -1770,7 +1819,7 @@ const renewListing = async (req, res) => {
       return res.status(401).send({ error: true, message: "Not authenticated" });
     }
 
-    const product = await Product.findById(pid);
+    const product = await getProductById(pid);
     if (!product) {
       return res.status(404).send({ error: true, message: "Product not found" });
     }
@@ -1778,7 +1827,7 @@ const renewListing = async (req, res) => {
     // Only the seller or an admin may renew
     if (
       user.role !== "admin" &&
-      product.id?.toString() !== user._id?.toString()
+      (product.seller_id || product.id)?.toString() !== (user.id || user._id)?.toString()
     ) {
       return res.status(403).send({ error: true, message: "Not authorized" });
     }
@@ -1786,7 +1835,7 @@ const renewListing = async (req, res) => {
     const newExpiresAt = new Date(
       Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000
     );
-    await Product.updateOne({ _id: pid }, { expiresAt: newExpiresAt });
+    await updateProduct(pid, { expires_at: newExpiresAt });
 
     res.status(200).send({
       error: false,
@@ -1809,40 +1858,48 @@ const setSellerTrust = async (req, res) => {
       return res.status(400).send({ error: true, message: "userId is required" });
     }
 
-    const update = {};
+    const updates = {};
     if (typeof sellerVerified === "boolean") {
-      update.sellerVerified = sellerVerified;
+      updates.seller_verified = toBoolInt(sellerVerified);
     }
     if (sellerRating !== undefined) {
       const numericRating = Number(sellerRating);
       if (Number.isNaN(numericRating) || numericRating < 0 || numericRating > 5) {
         return res.status(400).send({ error: true, message: "sellerRating must be between 0 and 5" });
       }
-      update.sellerRating = numericRating;
+      updates.seller_rating = numericRating;
     }
     if (sellerRatingCount !== undefined) {
       const numericCount = Number(sellerRatingCount);
       if (!Number.isInteger(numericCount) || numericCount < 0) {
         return res.status(400).send({ error: true, message: "sellerRatingCount must be a non-negative integer" });
       }
-      update.sellerRatingCount = numericCount;
+      updates.seller_rating_count = numericCount;
     }
 
-    if (Object.keys(update).length === 0) {
+    if (Object.keys(updates).length === 0) {
       return res.status(400).send({ error: true, message: "No valid fields to update" });
     }
 
-    const updatedUser = await User.findByIdAndUpdate(userId, update, {
-      new: true,
-      runValidators: true,
-      select: "name mail sellerVerified sellerRating sellerRatingCount",
-    }).lean();
-
-    if (!updatedUser) {
+    const existingUser = await getUserById(userId);
+    if (!existingUser) {
       return res.status(404).send({ error: true, message: "User not found" });
     }
 
-    res.status(200).send({ error: false, details: updatedUser });
+    await updateUser(userId, updates);
+    const updatedUser = await getUserById(userId);
+
+    res.status(200).send({
+      error: false,
+      details: {
+        id: updatedUser.id,
+        name: updatedUser.name,
+        mail: updatedUser.mail,
+        sellerVerified: fromBoolInt(updatedUser.seller_verified),
+        sellerRating: Number(updatedUser.seller_rating || 0),
+        sellerRatingCount: Number(updatedUser.seller_rating_count || 0),
+      },
+    });
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true, message: "Failed to update seller trust" });
