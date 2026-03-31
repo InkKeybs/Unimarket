@@ -11,6 +11,7 @@ import Product from "./pages/Product";
 import Shops from "./pages/Shops";
 import FixDeal from "./pages/FixDeal";
 import Chat from "./pages/Chat";
+import Chats from "./pages/Chats";
 import Admin from "./pages/Admin";
 import ChatWidget from "./components/ChatWidget/ChatWidget";
 
@@ -57,6 +58,7 @@ function App() {
         <Route path="/buy-product/:prod/:seller/:buyer" element={<FixDeal />} />
         <Route path="/product/:prod" element={<Product />} />
         <Route path="/shops" element={<Shops />} />
+        <Route path="/chats" element={<Chats />} />
         <Route path="/chat/:productId/:otherUserId" element={<Chat />} />
       </Routes>
       <ChatWidget />

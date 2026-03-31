@@ -136,6 +136,9 @@ function Home() {
               Notification
             </div>
             <div>
+              <Link to="/chats">Chats</Link>
+            </div>
+            <div>
               <Link to="/sell">Sell</Link>
             </div>
             {role === "admin" ? (
