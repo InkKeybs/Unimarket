@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS products (
   pname TEXT NOT NULL,
   pprice REAL NOT NULL,
   pdetail TEXT,
+  pcondition TEXT,
   pdate TEXT,
   pimage TEXT,
   pcat TEXT,

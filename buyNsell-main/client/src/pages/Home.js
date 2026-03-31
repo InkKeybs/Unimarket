@@ -8,7 +8,6 @@ import chair from "../assets/chair.svg";
 import coat from "../assets/coat.svg";
 import others from "../assets/others.svg";
 import all from "../assets/all.svg";
-import tick from "../assets/tick.svg";
 import { useEffect, useState } from "react";
 import axios from "axios";
 import Card from "../components/Card/Card";
@@ -87,9 +86,9 @@ function Home() {
   }, []);
 
   const [notification, setNotification] = useState(false);
-  const images = [table, chair, cycle, setsquare, coat, others, all, tick];
+  const images = [table, chair, cycle, setsquare, coat, others, all];
   const [category, setCategory] = useState("all");
-  const catId = ["Gadgets", "Books", "Clothes", "Supplies", "Food", "Others", "All", "Shops"];
+  const catId = ["Gadgets", "Books", "Clothes", "Supplies", "Food", "Others", "All"];
   const handleSearch = () => {
     const query = searchval.trim();
     axios({
@@ -202,10 +201,6 @@ function Home() {
                 className={styles.categoryChip}
                 onClick={() => {
                   const id = catId[index];
-                  if (id === "Shops") {
-                    navigate("/shops");
-                    return;
-                  }
                   setCategory(id);
                   handleDisProd(id);
                 }}

@@ -330,15 +330,16 @@ const createProduct = async (productData) => {
     const id = productData.id || crypto.randomUUID();
     await client.execute({
       sql: `INSERT INTO products 
-            (id, seller_id, pname, pprice, pdetail, pdate, pimage, pcat, preg, 
+            (id, seller_id, pname, pprice, pdetail, pcondition, pdate, pimage, pcat, preg, 
              sold, status, expires_at, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       args: [
         id,
         productData.seller_id || productData.id,
         productData.pname || '',
         productData.pprice || 0,
         productData.pdetail || '',
+        productData.pcondition || 'Used',
         productData.pdate || toSqliteDatetime(new Date()),
         productData.pimage || '',
         productData.pcat || '',
