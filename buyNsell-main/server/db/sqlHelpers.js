@@ -253,6 +253,17 @@ const getApprovedProducts = async () => {
     });
     return result.rows || [];
   } catch (error) {
+    const message = String(error?.message || error || "").toLowerCase();
+    if (message.includes("no such column")) {
+      try {
+        const fallback = await client.execute({
+          sql: `SELECT * FROM products WHERE sold = 0 ORDER BY preg DESC`
+        });
+        return fallback.rows || [];
+      } catch (fallbackError) {
+        console.log("Fallback approved-products query failed:", fallbackError);
+      }
+    }
     console.log("Error getting approved products:", error);
     return [];
   }
@@ -288,6 +299,30 @@ const searchProducts = async (searchTerms) => {
     });
     return result.rows || [];
   } catch (error) {
+    const message = String(error?.message || error || "").toLowerCase();
+    if (message.includes("no such column")) {
+      try {
+        const tokens = (searchTerms || "").split(/\s+/).filter(Boolean);
+        if (tokens.length === 0) {
+          return [];
+        }
+        const whereClauses = tokens.map(() => `(pname LIKE ? OR pcat LIKE ? OR pdetail LIKE ?)`).join(' AND ');
+        const fallbackArgs = [];
+        tokens.forEach((token) => {
+          const pattern = `%${token}%`;
+          fallbackArgs.push(pattern, pattern, pattern);
+        });
+        const fallback = await client.execute({
+          sql: `SELECT * FROM products
+                WHERE sold = 0 AND (${whereClauses})
+                ORDER BY preg DESC`,
+          args: fallbackArgs
+        });
+        return fallback.rows || [];
+      } catch (fallbackError) {
+        console.log("Fallback search query failed:", fallbackError);
+      }
+    }
     console.log("Error searching products:", error);
     return [];
   }
