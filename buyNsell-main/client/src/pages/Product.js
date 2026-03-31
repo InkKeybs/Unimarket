@@ -21,6 +21,9 @@ function Product() {
   const [sname, setSname] = useState("");
   const [smail, setSmail] = useState("");
   const [sphone, setPhone] = useState("");
+  const [sellerVerified, setSellerVerified] = useState(false);
+  const [sellerRating, setSellerRating] = useState(0);
+  const [sellerRatingCount, setSellerRatingCount] = useState(0);
   const [data, setData] = useState({
     sname: "",
     _id: "314",
@@ -112,6 +115,9 @@ function Product() {
             setSname(response.data.details.name);
             setSmail(response.data.details.mail);
             setPhone(response.data.details.phone);
+            setSellerVerified(Boolean(response.data.details.sellerVerified));
+            setSellerRating(Number(response.data.details.sellerRating || 0));
+            setSellerRatingCount(Number(response.data.details.sellerRatingCount || 0));
             setbidAmount(data.pprice);
             if (response.data.details.data.expiresAt) {
               setExpiresAt(new Date(response.data.details.data.expiresAt));
@@ -165,6 +171,9 @@ function Product() {
         setData(response.data.details.data);
         setSname(response.data.details.name);
         setSmail(response.data.details.mail);
+        setSellerVerified(Boolean(response.data.details.sellerVerified));
+        setSellerRating(Number(response.data.details.sellerRating || 0));
+        setSellerRatingCount(Number(response.data.details.sellerRatingCount || 0));
         setbidAmount(data.pprice);
         setLoading(false);
         setProdExist(true);
@@ -451,6 +460,18 @@ function Product() {
                 <p className={styles.pbought}>
                   sold by : {sname} {valid ? smail : ""}
                 </p>
+                {(sellerVerified || sellerRatingCount > 0) && (
+                  <div className={styles.sellerTrustRow}>
+                    {sellerVerified && (
+                      <span className={styles.verifiedBadge}>✓ Verified Seller</span>
+                    )}
+                    {sellerRatingCount > 0 && (
+                      <span className={styles.ratingBadge}>
+                        ★ {sellerRating.toFixed(1)} ({sellerRatingCount})
+                      </span>
+                    )}
+                  </div>
+                )}
                 {valid ? (
                   <p className={styles.pbought}>phone : {sphone}</p>
                 ) : (

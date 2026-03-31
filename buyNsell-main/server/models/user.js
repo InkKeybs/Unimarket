@@ -11,6 +11,9 @@ const UserSchema = new Schema({
   password: { type: String, required: true },
   course: { type: String, required: false },
   verified: { type: Boolean, default: false },
+  sellerVerified: { type: Boolean, default: false },
+  sellerRating: { type: Number, default: 0, min: 0, max: 5 },
+  sellerRatingCount: { type: Number, default: 0, min: 0 },
   verificationExpiresAt: { type: Date, default: null },
   role: { type: String, default: "user", required: true },
 });

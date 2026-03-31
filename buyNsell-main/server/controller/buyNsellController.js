@@ -120,6 +120,42 @@ const buildApprovedProductFilter = () => ({
   ],
 });
 
+const attachSellerTrustMeta = async (products) => {
+  if (!Array.isArray(products) || products.length === 0) {
+    return [];
+  }
+
+  const sellerIds = [
+    ...new Set(
+      products
+        .map((product) => product?.id?.toString?.())
+        .filter(Boolean)
+    ),
+  ];
+
+  if (sellerIds.length === 0) {
+    return products;
+  }
+
+  const sellers = await User.find({ _id: { $in: sellerIds } })
+    .select("sellerVerified sellerRating sellerRatingCount")
+    .lean();
+
+  const sellerMetaById = new Map(
+    sellers.map((seller) => [seller._id.toString(), seller])
+  );
+
+  return products.map((product) => {
+    const sellerMeta = sellerMetaById.get(product?.id?.toString?.()) || {};
+    return {
+      ...product,
+      sellerVerified: Boolean(sellerMeta.sellerVerified),
+      sellerRating: Number(sellerMeta.sellerRating || 0),
+      sellerRatingCount: Number(sellerMeta.sellerRatingCount || 0),
+    };
+  });
+};
+
 const getUserFromRefreshToken = async (refreshToken) => {
   if (!refreshToken) {
     return null;
@@ -818,7 +854,8 @@ const update = async (req, res) => {
 const displayProd = async (req, res) => {
   try {
     const data = await Product.find(buildApprovedProductFilter()).lean();
-    res.status(200).send({ error: false, details: data });
+    const productsWithSellerMeta = await attachSellerTrustMeta(data);
+    res.status(200).send({ error: false, details: productsWithSellerMeta });
   } catch (error) {
     console.log("Error: ", error);
     res.status(400).send({ error: true });
@@ -833,7 +870,8 @@ const searchproduct = async (req, res) => {
     // If search is empty, return all unsold products to avoid surprising blanks
     if (!searchval) {
       const allUnsold = await Product.find(approvedFilter).lean();
-      return res.status(200).send({ mysearchdata: allUnsold });
+      const allUnsoldWithSellerMeta = await attachSellerTrustMeta(allUnsold);
+      return res.status(200).send({ mysearchdata: allUnsoldWithSellerMeta });
     }
 
     const tokens = searchval
@@ -852,7 +890,9 @@ const searchproduct = async (req, res) => {
       ],
     }).lean();
 
-    res.status(200).send({ mysearchdata: data });
+    const dataWithSellerMeta = await attachSellerTrustMeta(data);
+
+    res.status(200).send({ mysearchdata: dataWithSellerMeta });
   } catch (error) {
     console.log("searchproduct error", error);
     res.status(400).send({ error: true, message: "Search failed" });
@@ -885,11 +925,24 @@ const prodData = async (req, res) => {
       return res.status(404).send({ error: true, message: "Seller not found" });
     }
 
-    const { name, mail, phone } = seller;
+    const { name, mail, phone, sellerVerified, sellerRating, sellerRatingCount } = seller;
     const isExpired = isProductExpired(data);
     res
       .status(200)
-      .send({ error: false, details: { data, bid, name, mail, phone }, isExpired });
+      .send({
+        error: false,
+        details: {
+          data,
+          bid,
+          name,
+          mail,
+          phone,
+          sellerVerified: Boolean(sellerVerified),
+          sellerRating: Number(sellerRating || 0),
+          sellerRatingCount: Number(sellerRatingCount || 0),
+        },
+        isExpired,
+      });
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true });
@@ -1642,6 +1695,56 @@ const renewListing = async (req, res) => {
   }
 };
 
+const setSellerTrust = async (req, res) => {
+  try {
+    const adminUser = await requireAdminUser(req, res);
+    if (!adminUser) return;
+
+    const { userId, sellerVerified, sellerRating, sellerRatingCount } = req.body;
+    if (!userId) {
+      return res.status(400).send({ error: true, message: "userId is required" });
+    }
+
+    const update = {};
+    if (typeof sellerVerified === "boolean") {
+      update.sellerVerified = sellerVerified;
+    }
+    if (sellerRating !== undefined) {
+      const numericRating = Number(sellerRating);
+      if (Number.isNaN(numericRating) || numericRating < 0 || numericRating > 5) {
+        return res.status(400).send({ error: true, message: "sellerRating must be between 0 and 5" });
+      }
+      update.sellerRating = numericRating;
+    }
+    if (sellerRatingCount !== undefined) {
+      const numericCount = Number(sellerRatingCount);
+      if (!Number.isInteger(numericCount) || numericCount < 0) {
+        return res.status(400).send({ error: true, message: "sellerRatingCount must be a non-negative integer" });
+      }
+      update.sellerRatingCount = numericCount;
+    }
+
+    if (Object.keys(update).length === 0) {
+      return res.status(400).send({ error: true, message: "No valid fields to update" });
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(userId, update, {
+      new: true,
+      runValidators: true,
+      select: "name mail sellerVerified sellerRating sellerRatingCount",
+    }).lean();
+
+    if (!updatedUser) {
+      return res.status(404).send({ error: true, message: "User not found" });
+    }
+
+    res.status(200).send({ error: false, details: updatedUser });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ error: true, message: "Failed to update seller trust" });
+  }
+};
+
 module.exports = {
   prodData,
   deletemybid,
@@ -1668,9 +1771,9 @@ module.exports = {
   approveProduct,
   rejectProduct,
   renewListing,
-    renewListing,
-    getAdminAllProducts,
-    adminDeleteProduct,
+  setSellerTrust,
+  getAdminAllProducts,
+  adminDeleteProduct,
   addbid,
   removebid,
   fixdeal,

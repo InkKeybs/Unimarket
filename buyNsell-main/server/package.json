@@ -9,12 +9,15 @@
     "dev": "nodemon server.js",
     "seed:user": "node scripts/seedUser.js",
     "seed:admin": "node scripts/seedAdmin.js",
-    "clear:db": "node scripts/clearDatabase.js"
+    "clear:db": "node scripts/clearDatabase.js",
+    "db:init:turso": "node scripts/initTursoSchema.js",
+    "db:migrate:mongo-to-turso": "node scripts/migrateMongoToTurso.js"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@libsql/client": "^0.15.15",
     "bcrypt": "^5.1.0",
     "body-parser": "^1.20.2",
     "cookie-parser": "^1.4.6",

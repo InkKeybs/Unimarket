@@ -28,6 +28,7 @@ router.post("/admin/approve-product", buyNsell.approveProduct);
 router.post("/admin/reject-product", buyNsell.rejectProduct);
 router.post("/admin/all-products", buyNsell.getAdminAllProducts);
 router.post("/admin/delete-product", buyNsell.adminDeleteProduct);
+router.post("/admin/set-seller-trust", buyNsell.setSellerTrust);
 router.post("/renewlisting", buyNsell.renewListing);
 router.post("/update", buyNsell.update);
 router.post("/prodData", buyNsell.prodData);

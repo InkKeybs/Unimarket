@@ -235,6 +235,33 @@
   }
 }
 
+.sellerTrustRow {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+.verifiedBadge {
+  background: rgba(37, 99, 235, 0.15);
+  color: var(--primary);
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.ratingBadge {
+  background: rgba(234, 179, 8, 0.18);
+  color: #92400e;
+  border: 1px solid rgba(234, 179, 8, 0.45);
+  border-radius: 999px;
+  padding: 4px 9px;
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
 #noBids {
   padding: 3rem 0;
   color: maroon;

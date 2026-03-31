@@ -12,6 +12,35 @@ The purpose of this project is to build connectivity within the campus where stu
 
 ReactJS, NodeJS, MongoDB, JWT web tokens, Mongoose
 
+#### Turso SQL Setup (Migration Tooling)
+
+The backend now includes Turso SQL schema + migration scripts.
+
+- Add these env vars in `server/.env` (or Render env):
+	- `TURSO_DATABASE_URL`
+	- `TURSO_AUTH_TOKEN`
+	- `ATLAS_KEY` (required when migrating existing Mongo data)
+	- `DB_NAME` (optional Mongo db name)
+
+- Initialize Turso schema:
+
+```powershell
+cd server
+npm install
+npm run db:init:turso
+```
+
+- Migrate MongoDB data to Turso:
+
+```powershell
+cd server
+npm run db:migrate:mongo-to-turso
+```
+
+Notes:
+- The migration copies users, products, bids (and bid entries), messages, OTPs, and token tables.
+- Application query layer is still Mongoose-based; this tooling prepares and populates Turso for incremental endpoint migration.
+
 #### Create a test account (seed)
 
 To create a working test account in your MongoDB users collection, run the seed script included at `server/scripts/seedUser.js`.

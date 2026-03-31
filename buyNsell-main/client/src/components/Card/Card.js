@@ -22,6 +22,17 @@ function Card({ ele }) {
           <p className={styles.pprice}>₱{ele.pprice}</p>
         </div>
 
+        {(ele.sellerVerified || ele.sellerRatingCount > 0) && (
+          <div className={styles.sellerMeta}>
+            {ele.sellerVerified && <span className={styles.verifiedBadge}>✓ Verified Seller</span>}
+            {ele.sellerRatingCount > 0 && (
+              <span className={styles.ratingBadge}>
+                ★ {Number(ele.sellerRating || 0).toFixed(1)} ({ele.sellerRatingCount})
+              </span>
+            )}
+          </div>
+        )}
+
         <p className={styles.pbought}>bought on : {ele.pdate.slice(0, 10)}</p>
       </div>
     </div>
