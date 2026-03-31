@@ -436,14 +436,14 @@ function Product() {
             const daysLeft = Math.ceil(msLeft / (1000 * 60 * 60 * 24));
             if (isExpired || daysLeft <= 0) {
               return (
-                <div style={{ background: "#fef2f2", color: "#b91c1c", padding: "10px 18px", borderRadius: "8px", margin: "10px 20px", fontWeight: 600, fontSize: "14px" }}>
+                <div className={`${styles.expiryAlert} ${styles.expired}`}>
                   ⚠️ This listing has expired and is no longer active.
                 </div>
               );
             }
             if (daysLeft <= 7) {
               return (
-                <div style={{ background: "#fffbeb", color: "#92400e", padding: "10px 18px", borderRadius: "8px", margin: "10px 20px", fontWeight: 600, fontSize: "14px" }}>
+                <div className={`${styles.expiryAlert} ${styles.warning}`}>
                   ⏰ This listing expires in {daysLeft} day{daysLeft === 1 ? "" : "s"}.
                 </div>
               );
@@ -455,14 +455,14 @@ function Product() {
               <img src={data.pimage} id={styles.pimage} alt={data.pname} />
             </div>
             <div id={styles.productInfocon}>
-              <div>
+              <div className={styles.productMetaBlock}>
                 <p id={styles.pname}>{data.pname}</p>
                 <p id={styles.pcat}> {data.pcat}</p>
                 <p id={styles.pdetail}>{data.pdetail}</p>
-                <p className={styles.pbought}>
+                <p className={styles.metaLine}>
                   bought on : {data.pdate.slice(0, 10)}
                 </p>
-                <p className={styles.pbought}>
+                <p className={styles.metaLine}>
                   sold by : {sname} {valid ? smail : ""}
                 </p>
                 {(sellerVerified || sellerRatingCount > 0) && (
@@ -478,7 +478,7 @@ function Product() {
                   </div>
                 )}
                 {valid ? (
-                  <p className={styles.pbought}>phone : {sphone}</p>
+                  <p className={styles.metaLine}>phone : {sphone}</p>
                 ) : (
                   ""
                 )}
@@ -489,9 +489,9 @@ function Product() {
                   <LoaderIcon />
                 ) : valid ? (
                   isMyProd ? (
-                    <div></div>
+                    <div className={styles.ownerPill}>Your listing</div>
                   ) : (
-                    <div style={{ display: 'flex', gap: '10px', flexDirection: 'column' }}>
+                    <div className={styles.actionStack}>
                       {!exist ? (
                         <button
                           className={styles.addBidButton}
@@ -517,7 +517,7 @@ function Product() {
                           }
                         }}
                       >
-                        💬 Chat with Seller
+                        Chat with Seller
                       </button>
                     </div>
                   )
