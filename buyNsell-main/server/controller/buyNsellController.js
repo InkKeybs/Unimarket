@@ -1,14 +1,38 @@
-const User = require("../models/user");
-const Token = require("../models/token");
-const Otp = require("../models/otp");
+// Turso SQL imports
+const { getTursoClient } = require("../db/tursoClient");
+let {
+  getUserById,
+  getUserByEmail,
+  createUser,
+  updateUser,
+  deleteUser,
+  createOtp,
+  getLatestOtpForUser,
+  markOtpAsConsumed,
+  deleteOtpsForUser,
+  getApprovedProducts,
+  searchProducts,
+  getProductById,
+  createProduct,
+  updateProduct,
+  getBidForProduct,
+  saveMessage: saveMessageDb,
+  getMessages: getMessagesDb,
+  markMessagesAsRead,
+  createUserToken,
+  getUserTokenByToken,
+  deleteUserToken,
+  toSqliteDatetime,
+  fromSqliteDatetime,
+  toBoolInt,
+  fromBoolInt,
+  approveProduct: approveProductDb,
+  rejectProduct: rejectProductDb,
+} = require("../db/sqlHelpers");
 const crypto = require("crypto");
 const sendEmail = require("../utils/sendEmail");
 const bcrypt = require("bcrypt");
-const Product = require("../models/products");
-const Bid = require("../models/bid");
-const Message = require("../models/message");
 const jwt = require("jsonwebtoken");
-const UserToken = require("../models/userToken");
 const verifyRefreshToken = require("../utils/verifyRefreshToken");
 const generateTokens = require("../utils/generateToken.js");
 
@@ -44,17 +68,12 @@ const hashOtp = (code) =>
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 
-const escapeRegex = (text) => text.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+// Helper: Convert UTC string to SQLite format
+// (Already imported from sqlHelpers)
 
 const findUserByEmail = async (email) => {
   const normalized = normalizeEmail(email);
-  let user = await User.findOne({ mail: normalized });
-  if (!user) {
-    user = await User.findOne({
-      mail: { $regex: `^${escapeRegex(normalized)}$`, $options: "i" },
-    });
-  }
-  return user;
+  return getUserByEmail(normalized);
 };
 
 const getUnverifiedExpiryFromUser = (user) => {
@@ -93,32 +112,38 @@ const deleteExpiredUnverifiedAccountIfNeeded = async (user) => {
     return false;
   }
 
-  await Otp.deleteMany({ userId: user._id, purpose: "register" });
-  await User.deleteOne({ _id: user._id, verified: false });
-  return true;
+  const client = getTursoClient();
+  try {
+    // Delete OTPs for this user with register purpose
+    await client.execute({
+      sql: "DELETE FROM otps WHERE user_id = ? AND purpose = 'register'",
+      args: [user.id]
+    });
+    
+    // Delete the unverified user
+    await client.execute({
+      sql: "DELETE FROM users WHERE id = ? AND verified = 0",
+      args: [user.id]
+    });
+    
+    return true;
+  } catch (error) {
+    console.log("Error deleting expired unverified account:", error);
+    return false;
+  }
 };
 
 const getUnverifiedAccountExpiryDate = () =>
   new Date(Date.now() + UNVERIFIED_ACCOUNT_TTL_MS);
 
-const buildApprovedProductFilter = () => ({
-  sold: { $ne: true },
-  $and: [
-    {
-      $or: [
-        { status: PRODUCT_APPROVAL_STATUS.APPROVED },
-        { status: { $exists: false } },
-      ],
-    },
-    {
-      $or: [
-        { expiresAt: { $exists: false } },
-        { expiresAt: null },
-        { expiresAt: { $gt: new Date() } },
-      ],
-    },
-  ],
-});
+// Helper: Build SQL WHERE clause for approved, non-expired, unsold products
+const buildApprovedProductFilter = () => {
+  const now = new Date().toISOString();
+  return {
+    whereClause: "WHERE sold = 0 AND (status = 'approved' OR status IS NULL OR status = '') AND (expires_at IS NULL OR expires_at > ?)",
+    args: [now]
+  };
+};
 
 const attachSellerTrustMeta = async (products) => {
   if (!Array.isArray(products) || products.length === 0) {
@@ -128,7 +153,7 @@ const attachSellerTrustMeta = async (products) => {
   const sellerIds = [
     ...new Set(
       products
-        .map((product) => product?.id?.toString?.())
+        .map((product) => product?.seller_id?.toString?.() || product?.seller_id)
         .filter(Boolean)
     ),
   ];
@@ -137,23 +162,31 @@ const attachSellerTrustMeta = async (products) => {
     return products;
   }
 
-  const sellers = await User.find({ _id: { $in: sellerIds } })
-    .select("sellerVerified sellerRating sellerRatingCount")
-    .lean();
+  const client = getTursoClient();
+  try {
+    const placeholders = sellerIds.map(() => "?").join(",");
+    const result = await client.execute({
+      sql: `SELECT id, seller_verified, seller_rating, seller_rating_count FROM users WHERE id IN (${placeholders})`,
+      args: sellerIds
+    });
 
-  const sellerMetaById = new Map(
-    sellers.map((seller) => [seller._id.toString(), seller])
-  );
+    const sellerMetaById = new Map(
+      result.rows.map((seller) => [seller.id, seller])
+    );
 
-  return products.map((product) => {
-    const sellerMeta = sellerMetaById.get(product?.id?.toString?.()) || {};
-    return {
-      ...product,
-      sellerVerified: Boolean(sellerMeta.sellerVerified),
-      sellerRating: Number(sellerMeta.sellerRating || 0),
-      sellerRatingCount: Number(sellerMeta.sellerRatingCount || 0),
-    };
-  });
+    return products.map((product) => {
+      const sellerMeta = sellerMetaById.get(product?.seller_id) || {};
+      return {
+        ...product,
+        sellerVerified: fromBoolInt(sellerMeta.seller_verified),
+        sellerRating: Number(sellerMeta.seller_rating || 0),
+        sellerRatingCount: Number(sellerMeta.seller_rating_count || 0),
+      };
+    });
+  } catch (error) {
+    console.log("Error attaching seller trust meta:", error);
+    return products;
+  }
 };
 
 const getUserFromRefreshToken = async (refreshToken) => {
@@ -161,24 +194,50 @@ const getUserFromRefreshToken = async (refreshToken) => {
     return null;
   }
 
+  const client = getTursoClient();
   try {
-    const storedToken = await UserToken.findOne({ token: refreshToken });
-    if (!storedToken) {
+    // First check if refresh token exists
+    const tokenResult = await client.execute({
+      sql: "SELECT user_id FROM user_tokens WHERE token = ?",
+      args: [refreshToken]
+    });
+    
+    if (tokenResult.rows.length === 0) {
       return null;
     }
 
-    const tokenDetails = jwt.verify(
-      refreshToken,
-      process.env.JWTREFRESHPRIVATEKEY
-    );
+    const userId = tokenResult.rows[0].user_id;
 
-    if (!tokenDetails?._id) {
+    // Verify JWT token
+    let tokenDetails;
+    try {
+      tokenDetails = jwt.verify(
+        refreshToken,
+        process.env.JWTREFRESHPRIVATEKEY
+      );
+    } catch (error) {
       return null;
     }
 
-    const user = await User.findById(tokenDetails._id);
-    return user;
+    if (!tokenDetails?._id && !tokenDetails?.id) {
+      return null;
+    }
+
+    const lookupId = tokenDetails._id || tokenDetails.id;
+
+    // Get user from database
+    const userResult = await client.execute({
+      sql: "SELECT * FROM users WHERE id = ?",
+      args: [lookupId]
+    });
+
+    if (userResult.rows.length === 0) {
+      return null;
+    }
+
+    return userResult.rows[0];
   } catch (error) {
+    console.log("Error getting user from refresh token:", error);
     return null;
   }
 };
@@ -240,61 +299,83 @@ const issuePendingRegisterToken = (userId) =>
   });
 
 const createAndSendOtp = async (user) => {
-  await Otp.deleteMany({ userId: user._id, purpose: "login" });
-  const code = generateOtpCode();
-  const codeHash = hashOtp(code);
-  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+  const client = getTursoClient();
+  try {
+    // Delete old OTPs
+    await client.execute({
+      sql: "DELETE FROM otps WHERE user_id = ? AND purpose = 'login'",
+      args: [user.id]
+    });
 
-  await Otp.create({
-    userId: user._id,
-    codeHash,
-    expiresAt,
-    purpose: "login",
-  });
+    const code = generateOtpCode();
+    const codeHash = hashOtp(code);
+    const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+    const id = crypto.randomUUID();
 
-  const emailText = `Your Unimarket login code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`;
-  // Send email in background (non-blocking)
-  sendEmail(user.mail, "Your Unimarket login code", emailText).catch((err) => {
-    console.log("OTP email send failed", err?.message || err);
-  });
+    await client.execute({
+      sql: `INSERT INTO otps (id, user_id, code_hash, expires_at, purpose, consumed)
+            VALUES (?, ?, ?, ?, 'login', 0)`,
+      args: [id, user.id, codeHash, toSqliteDatetime(expiresAt)]
+    });
 
-  // Dev fallback: log OTP to console so QA can proceed if email is misconfigured
-  if (process.env.NODE_ENV !== "production") {
-    console.log(`DEV OTP for ${user.mail}: ${code}`);
+    const emailText = `Your Unimarket login code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`;
+    // Send email in background (non-blocking)
+    sendEmail(user.mail, "Your Unimarket login code", emailText).catch((err) => {
+      console.log("OTP email send failed", err?.message || err);
+    });
+
+    // Dev fallback: log OTP to console so QA can proceed if email is misconfigured
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`DEV OTP for ${user.mail}: ${code}`);
+    }
+
+    return {
+      expiresAt,
+      code: process.env.NODE_ENV !== "production" ? code : undefined,
+    };
+  } catch (error) {
+    console.log("Error creating/sending OTP:", error);
+    throw error;
   }
-
-  return {
-    expiresAt,
-    code: process.env.NODE_ENV !== "production" ? code : undefined,
-  };
 };
 
 const createAndSendRegisterOtp = async (user) => {
-  await Otp.deleteMany({ userId: user._id, purpose: "register" });
-  const code = generateOtpCode();
-  const codeHash = hashOtp(code);
-  const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+  const client = getTursoClient();
+  try {
+    // Delete old OTPs
+    await client.execute({
+      sql: "DELETE FROM otps WHERE user_id = ? AND purpose = 'register'",
+      args: [user.id]
+    });
 
-  await Otp.create({
-    userId: user._id,
-    codeHash,
-    expiresAt,
-    purpose: "register",
-  });
+    const code = generateOtpCode();
+    const codeHash = hashOtp(code);
+    const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
+    const id = crypto.randomUUID();
 
-  const emailText = `Your Unimarket registration code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`;
-  sendEmail(user.mail, "Verify your Unimarket account", emailText).catch((err) => {
-    console.log("Register OTP email send failed", err?.message || err);
-  });
+    await client.execute({
+      sql: `INSERT INTO otps (id, user_id, code_hash, expires_at, purpose, consumed)
+            VALUES (?, ?, ?, ?, 'register', 0)`,
+      args: [id, user.id, codeHash, toSqliteDatetime(expiresAt)]
+    });
 
-  if (process.env.NODE_ENV !== "production") {
-    console.log(`DEV Register OTP for ${user.mail}: ${code}`);
+    const emailText = `Your Unimarket registration code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`;
+    sendEmail(user.mail, "Verify your Unimarket account", emailText).catch((err) => {
+      console.log("Register OTP email send failed", err?.message || err);
+    });
+
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`DEV Register OTP for ${user.mail}: ${code}`);
+    }
+
+    return {
+      expiresAt,
+      code: process.env.NODE_ENV !== "production" ? code : undefined,
+    };
+  } catch (error) {
+    console.log("Error creating/sending register OTP:", error);
+    throw error;
   }
-
-  return {
-    expiresAt,
-    code: process.env.NODE_ENV !== "production" ? code : undefined,
-  };
 };
 
 const login = async (req, res) => {
@@ -310,7 +391,7 @@ const login = async (req, res) => {
     if (!validPassword) {
       return res.status(401).send({ message: "Invalid Email or Password" });
     }
-    if (!user.verified) {
+    if (!fromBoolInt(user.verified)) {
       const expiredAndDeleted = await deleteExpiredUnverifiedAccountIfNeeded(user);
       if (expiredAndDeleted) {
         return res.status(400).send({ message: "Your unverified account expired after 1 hour. Please register again." });
@@ -327,6 +408,7 @@ const login = async (req, res) => {
 };
 
 const verifyOtp = async (req, res) => {
+  const client = getTursoClient();
   try {
     const { pendingToken, code } = req.body;
     if (!pendingToken || !code) {
@@ -344,36 +426,55 @@ const verifyOtp = async (req, res) => {
       return res.status(400).send({ message: "Invalid token stage" });
     }
 
-    const otpDoc = await Otp.findOne({
-      userId: payload._id,
-      purpose: "login",
-      consumed: false,
-    }).sort({ createdAt: -1 });
+    const otpResult = await client.execute({
+      sql: `SELECT * FROM otps 
+            WHERE user_id = ? AND purpose = 'login' AND consumed = 0
+            ORDER BY created_at DESC LIMIT 1`,
+      args: [payload._id]
+    });
 
-    if (!otpDoc) {
+    if (otpResult.rows.length === 0) {
       return res.status(400).send({ message: "OTP not found. Please request a new code." });
     }
 
-    if (otpDoc.expiresAt < new Date()) {
-      await Otp.deleteMany({ userId: payload._id, purpose: "login" });
+    const otpDoc = otpResult.rows[0];
+
+    if (fromSqliteDatetime(otpDoc.expires_at) < new Date()) {
+      await client.execute({
+        sql: "DELETE FROM otps WHERE user_id = ? AND purpose = 'login'",
+        args: [payload._id]
+      });
       return res.status(400).send({ message: "OTP expired. Please request a new code." });
     }
 
-    const isValid = otpDoc.codeHash === hashOtp(code.trim());
+    const isValid = otpDoc.code_hash === hashOtp(code.trim());
     if (!isValid) {
       return res.status(401).send({ message: "Invalid code" });
     }
 
-    otpDoc.consumed = true;
-    await otpDoc.save();
+    // Mark OTP as consumed
+    await client.execute({
+      sql: "UPDATE otps SET consumed = 1 WHERE id = ?",
+      args: [otpDoc.id]
+    });
 
-    const user = await User.findById(payload._id);
-    if (!user) {
+    const userResult = await client.execute({
+      sql: "SELECT * FROM users WHERE id = ?",
+      args: [payload._id]
+    });
+
+    if (userResult.rows.length === 0) {
       return res.status(404).send({ message: "User not found" });
     }
 
+    const user = userResult.rows[0];
     const { accessToken, refreshToken } = await generateTokens(user);
-    await Otp.deleteMany({ userId: payload._id, purpose: "login", consumed: true });
+    
+    // Delete consumed OTPs
+    await client.execute({
+      sql: "DELETE FROM otps WHERE user_id = ? AND purpose = 'login' AND consumed = 1",
+      args: [payload._id]
+    });
 
     res.status(200).send({
       message: "2FA verified",
@@ -404,13 +505,20 @@ const resendOtp = async (req, res) => {
       return res.status(400).send({ message: "Invalid token stage" });
     }
 
-    const user = await User.findById(payload._id);
-    if (!user) {
+    const client = getTursoClient();
+    const userResult = await client.execute({
+      sql: "SELECT * FROM users WHERE id = ?",
+      args: [payload._id]
+    });
+
+    if (userResult.rows.length === 0) {
       return res.status(404).send({ message: "User not found" });
     }
 
+    const user = userResult.rows[0];
+
     await createAndSendOtp(user);
-    const newPendingToken = issuePending2FAToken(user._id);
+    const newPendingToken = issuePending2FAToken(user.id);
 
     res.status(200).send({
       message: "OTP resent",
@@ -853,7 +961,7 @@ const update = async (req, res) => {
 
 const displayProd = async (req, res) => {
   try {
-    const data = await Product.find(buildApprovedProductFilter()).lean();
+    const data = await getApprovedProducts();
     const productsWithSellerMeta = await attachSellerTrustMeta(data);
     res.status(200).send({ error: false, details: productsWithSellerMeta });
   } catch (error) {
@@ -865,31 +973,8 @@ const displayProd = async (req, res) => {
 const searchproduct = async (req, res) => {
   try {
     const searchval = (req.body.searchval || "").trim();
-    const approvedFilter = buildApprovedProductFilter();
 
-    // If search is empty, return all unsold products to avoid surprising blanks
-    if (!searchval) {
-      const allUnsold = await Product.find(approvedFilter).lean();
-      const allUnsoldWithSellerMeta = await attachSellerTrustMeta(allUnsold);
-      return res.status(200).send({ mysearchdata: allUnsoldWithSellerMeta });
-    }
-
-    const tokens = searchval
-      .split(/\s+/)
-      .map((t) => t.trim())
-      .filter(Boolean)
-      .map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
-
-    const pattern = new RegExp(tokens.map((t) => `(?=.*${t})`).join("") + ".*", "i");
-    const data = await Product.find({
-      ...approvedFilter,
-      $and: [
-        {
-          $or: [{ pname: pattern }, { pcat: pattern }, { pdetail: pattern }],
-        },
-      ],
-    }).lean();
-
+    const data = await searchProducts(searchval);
     const dataWithSellerMeta = await attachSellerTrustMeta(data);
 
     res.status(200).send({ mysearchdata: dataWithSellerMeta });
