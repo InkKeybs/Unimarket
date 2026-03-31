@@ -471,7 +471,6 @@ function ChatWidget() {
                   className={styles.chatFileInput}
                   onChange={handleImagePick}
                 />
-                <span className={styles.attachHint}>Auto-compressed before send</span>
                 <input
                   type="text"
                   placeholder="Type a message..."
