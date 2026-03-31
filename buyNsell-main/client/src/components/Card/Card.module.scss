@@ -10,19 +10,27 @@
   border-radius: 16px;
   cursor: pointer;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-  border: 1px solid var(--border);
+  border: 2px solid #2563eb;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .verifiedListing {
-  border: 1px solid #d4af37;
+  border-width: 2px;
   box-shadow: 0 0 0 1px rgba(212, 175, 55, 0.28), 0 2px 8px rgba(0, 0, 0, 0.06);
 }
 
 .card:hover {
   transform: translateY(-8px);
   box-shadow: 0 12px 32px rgba(0, 0, 128, 0.12);
-  border-color: rgba(0, 0, 128, 0.1);
+  border-color: #1d4ed8;
+}
+
+:global(.dark) .card {
+  border-color: #d4af37;
+}
+
+:global(.dark) .card:hover {
+  border-color: #e6c45a;
 }
 
 .prodimage {
