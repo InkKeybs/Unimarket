@@ -3,10 +3,12 @@ import { useEffect } from "react";
 import styles from "./Product.module.scss";
 import axios from "axios";
 import { Link } from "react-router-dom";
+import { useParams } from "react-router-dom";
 import search from "../assets/search.svg";
 import { LoaderIcon, toast } from "react-hot-toast";
 
 function Product() {
+  const { prod: routeProductId } = useParams();
   const [notification, setNotification] = useState(false);
   const [exist, setExist] = useState(false);
   const [addBid, setAddBid] = useState(false);
@@ -64,8 +66,7 @@ function Product() {
   );
 
   useEffect(() => {
-    const href = window.location.href.split("/");
-    const ppid = href[href.length - 1];
+    const ppid = routeProductId;
     const token = JSON.parse(localStorage.getItem("token"));
 
     axios({
@@ -90,9 +91,11 @@ function Product() {
             console.log("SETID22");
             console.log(response.data.details.data);
             var flag = false;
-            console.log("eed ", response.data.details.data.id.toString(), myid);
+            const productData = response.data.details.data;
+            const sellerId = productData.seller_id || productData.sellerId || productData.id;
+            console.log("eed ", sellerId?.toString?.(), myid);
 
-            if (response.data.details.data.id.toString() === myid) {
+            if (sellerId?.toString?.() === myid) {
               setIsMyProd(true);
             } else {
               setIsMyProd(false);
@@ -119,8 +122,8 @@ function Product() {
             setSellerRating(Number(response.data.details.sellerRating || 0));
             setSellerRatingCount(Number(response.data.details.sellerRatingCount || 0));
             setbidAmount(data.pprice);
-            if (response.data.details.data.expiresAt) {
-              setExpiresAt(new Date(response.data.details.data.expiresAt));
+            if (productData.expires_at || productData.expiresAt) {
+              setExpiresAt(new Date(productData.expires_at || productData.expiresAt));
             }
             setIsExpired(response.data.isExpired || false);
             setLoading(false);
@@ -147,9 +150,11 @@ function Product() {
         console.log("SETID22");
         console.log(response.data.details.data);
         var flag = false;
-        console.log("eed ", response.data.details.data.id.toString(), id);
+        const productData = response.data.details.data;
+        const sellerId = productData.seller_id || productData.sellerId || productData.id;
+        console.log("eed ", sellerId?.toString?.(), id);
 
-        if (response.data.details.data.id.toString() === id) {
+        if (sellerId?.toString?.() === id) {
           setIsMyProd(true);
         } else {
           setIsMyProd(false);
@@ -207,8 +212,8 @@ function Product() {
         biddata: {
           buyerId: id,
           bidPrice: bidAmount,
-          sellerId: data.id,
-          pid: data._id,
+              sellerId: data.seller_id || data.sellerId || data.id,
+              pid: data.id || data._id,
           bidTime: today,
           cancel: false,
         },
@@ -243,7 +248,7 @@ function Product() {
       method: "post",
       baseURL: `${process.env.REACT_APP_BASEURL}`,
       url: "/api/removebid",
-      data: { productid: data._id, buyerId: id },
+      data: { productid: data.id || data._id, buyerId: id },
     })
       .then(function (response) {
         var flag = false;

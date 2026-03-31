@@ -91,7 +91,7 @@ function Admin() {
     toast.loading("Processing", { duration: 1500 });
     axios({ method: "post", baseURL: `${process.env.REACT_APP_BASEURL}`, url: endpoint, data: { token, productId } })
       .then(() => {
-        setPending((prev) => prev.filter((item) => item._id !== productId));
+        setPending((prev) => prev.filter((item) => (item.id || item._id) !== productId));
         toast.success(action === "approve" ? "Product approved" : "Product rejected");
       })
       .catch(() => toast.error("Action failed"));
@@ -107,8 +107,8 @@ function Admin() {
       data: { token, productId },
     })
       .then(() => {
-        setPending((prev) => prev.filter((item) => item._id !== productId));
-        setAllItems((prev) => prev.filter((item) => item._id !== productId));
+        setPending((prev) => prev.filter((item) => (item.id || item._id) !== productId));
+        setAllItems((prev) => prev.filter((item) => (item.id || item._id) !== productId));
         setConfirmDelete(null);
         toast.success("Product deleted");
       })

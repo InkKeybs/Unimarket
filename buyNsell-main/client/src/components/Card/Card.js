@@ -4,7 +4,9 @@ import { useNavigate } from "react-router-dom";
 function Card({ ele }) {
   const navigate = useNavigate();
   const handleClick = () => {
-    navigate(`/product/${ele._id}`);
+    const productId = ele?.id || ele?._id;
+    if (!productId) return;
+    navigate(`/product/${productId}`);
   };
   return (
     <div
