@@ -292,10 +292,90 @@
   line-height: 1.4;
 }
 
+.messageImage {
+  display: block;
+  margin-top: 6px;
+  width: min(220px, 100%);
+  border-radius: 10px;
+  border: 1px solid var(--border);
+}
+
 .messageTime {
   font-size: 0.7rem;
   opacity: 0.7;
   margin-top: 4px;
+}
+
+.quickReplies {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 12px 6px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.quickReplyChip {
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  background: var(--muted);
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-1px);
+  }
+}
+
+.imagePreviewWrap {
+  padding: 8px 12px 4px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.imagePreview {
+  width: 54px;
+  height: 54px;
+  border-radius: 8px;
+  object-fit: cover;
+  border: 1px solid var(--border);
+}
+
+.removePreviewBtn {
+  border: 1px solid var(--border);
+  background: var(--muted);
+  color: var(--text);
+  border-radius: 8px;
+  font-size: 0.75rem;
+  padding: 6px 8px;
+  cursor: pointer;
+}
+
+.chatFileInput {
+  display: none;
+}
+
+.attachButton {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  background: var(--muted);
+  color: var(--text);
+  font-size: 1rem;
 }
 
 .messageInput {

@@ -4,6 +4,8 @@ import { toast } from "react-hot-toast";
 import styles from "./ChatWidget.module.scss";
 import { useNavigate } from "react-router-dom";
 
+const MAX_CHAT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+
 function ChatWidget() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
@@ -13,8 +15,15 @@ function ChatWidget() {
   const [activeChat, setActiveChat] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
+  const [selectedImage, setSelectedImage] = useState("");
   const [unreadTotal, setUnreadTotal] = useState(0);
   const messagesEndRef = useRef(null);
+  const quickReplies = [
+    "Is this available?",
+    "Can you share more photos?",
+    "What is the last price?",
+    "Where can we meet for pickup?",
+  ];
 
   const resetChatState = () => {
     setIsAuthenticated(false);
@@ -22,6 +31,7 @@ function ChatWidget() {
     setChatList([]);
     setActiveChat(null);
     setMessages([]);
+    setSelectedImage("");
     setIsOpen(false);
     setUnreadTotal(0);
   };
@@ -157,9 +167,10 @@ function ChatWidget() {
       });
   };
 
-  const handleSendMessage = (e) => {
-    e.preventDefault();
-    if (!newMessage.trim() || !activeChat) return;
+  const sendMessageText = (text, imagePayload = "") => {
+    const cleanedMessage = (text || "").trim();
+    const cleanedImage = imagePayload || "";
+    if ((!cleanedMessage && !cleanedImage) || !activeChat) return;
 
     axios({
       method: "post",
@@ -169,11 +180,13 @@ function ChatWidget() {
         productId: activeChat.productId,
         senderId: userId,
         receiverId: activeChat.otherUserId,
-        message: newMessage.trim(),
+        message: cleanedMessage,
+        imageData: cleanedImage || null,
       },
     })
       .then((res) => {
         setNewMessage("");
+        setSelectedImage("");
         loadMessages(userId, activeChat.productId, activeChat.otherUserId);
         loadChatList(userId);
       })
@@ -181,6 +194,33 @@ function ChatWidget() {
         console.log(err);
         toast.error("Failed to send message");
       });
+  };
+
+  const handleSendMessage = (e) => {
+    e.preventDefault();
+    sendMessageText(newMessage, selectedImage);
+  };
+
+  const handleImagePick = (e) => {
+    const selectedFile = e.target.files && e.target.files[0];
+    if (!selectedFile) return;
+
+    if (selectedFile.size > MAX_CHAT_IMAGE_SIZE_BYTES) {
+      toast.error("Chat image must be 5MB or less");
+      e.target.value = "";
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.readAsDataURL(selectedFile);
+    reader.onload = () => {
+      setSelectedImage(String(reader.result || ""));
+      e.target.value = "";
+    };
+    reader.onerror = () => {
+      toast.error("Failed to read selected image");
+      e.target.value = "";
+    };
   };
 
   const openChat = (chat) => {
@@ -264,8 +304,8 @@ function ChatWidget() {
                           {chat.productName}
                         </div>
                         <div className={styles.chatListMessage}>
-                          {chat.lastMessage.substring(0, 40)}
-                          {chat.lastMessage.length > 40 ? "..." : ""}
+                          {(chat.lastMessage || "").substring(0, 40)}
+                          {(chat.lastMessage || "").length > 40 ? "..." : ""}
                         </div>
                       </div>
                       {chat.unreadCount > 0 && (
@@ -313,7 +353,10 @@ function ChatWidget() {
                       }`}
                     >
                       <div className={styles.messageContent}>
-                        {msg.message}
+                        {msg.message ? <div>{msg.message}</div> : null}
+                        {msg.imageData ? (
+                          <img src={msg.imageData} alt="chat upload" className={styles.messageImage} />
+                        ) : null}
                       </div>
                       <div className={styles.messageTime}>
                         {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ""}
@@ -323,7 +366,39 @@ function ChatWidget() {
                 )}
                 <div ref={messagesEndRef} />
               </div>
+              <div className={styles.quickReplies}>
+                {quickReplies.map((reply) => (
+                  <button
+                    key={reply}
+                    type="button"
+                    className={styles.quickReplyChip}
+                    onClick={() => sendMessageText(reply, "")}
+                  >
+                    {reply}
+                  </button>
+                ))}
+              </div>
+              {selectedImage ? (
+                <div className={styles.imagePreviewWrap}>
+                  <img src={selectedImage} alt="selected chat upload" className={styles.imagePreview} />
+                  <button
+                    type="button"
+                    className={styles.removePreviewBtn}
+                    onClick={() => setSelectedImage("")}
+                  >
+                    Remove image
+                  </button>
+                </div>
+              ) : null}
               <form className={styles.messageInput} onSubmit={handleSendMessage}>
+                <label htmlFor="chatImageInput" className={styles.attachButton}>📎</label>
+                <input
+                  id="chatImageInput"
+                  type="file"
+                  accept="image/*"
+                  className={styles.chatFileInput}
+                  onChange={handleImagePick}
+                />
                 <input
                   type="text"
                   placeholder="Type a message..."

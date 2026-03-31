@@ -160,7 +160,16 @@ function Chat() {
                   msg.senderId?._id === userId ? styles.sent : styles.received
                 }`}
               >
-                <div className={styles.messageContent}>{msg.message}</div>
+                <div className={styles.messageContent}>
+                  {msg.message ? <div>{msg.message}</div> : null}
+                  {msg.imageData ? (
+                    <img
+                      src={msg.imageData}
+                      alt="chat upload"
+                      style={{ maxWidth: "220px", borderRadius: "8px", marginTop: "6px" }}
+                    />
+                  ) : null}
+                </div>
                 <div className={styles.messageTime}>
                   {new Date(msg.timestamp).toLocaleString()}
                 </div>

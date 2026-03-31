@@ -505,14 +505,15 @@ const saveMessage = async (messageData) => {
     const id = crypto.randomUUID();
     await client.execute({
       sql: `INSERT INTO messages 
-            (id, product_id, sender_id, receiver_id, message, timestamp, is_read)
-            VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            (id, product_id, sender_id, receiver_id, message, image_data, timestamp, is_read)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
         messageData.productId,
         messageData.senderId,
         messageData.receiverId,
-        messageData.message,
+        messageData.message || "",
+        messageData.imageData || null,
         toSqliteDatetime(new Date()),
         0
       ]

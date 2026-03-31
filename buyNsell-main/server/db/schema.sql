@@ -86,6 +86,7 @@ CREATE TABLE IF NOT EXISTS messages (
   sender_id TEXT NOT NULL,
   receiver_id TEXT NOT NULL,
   message TEXT NOT NULL,
+  image_data TEXT,
   timestamp TEXT,
   is_read INTEGER NOT NULL DEFAULT 0,
   FOREIGN KEY (product_id) REFERENCES products(id),

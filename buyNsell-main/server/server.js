@@ -90,6 +90,7 @@ const ensureSchemaOnStartup = async () => {
     await safeAlterTableAddColumn("ALTER TABLE products ADD COLUMN rejected_at TEXT");
     await safeAlterTableAddColumn("ALTER TABLE products ADD COLUMN rejected_by TEXT");
     await safeAlterTableAddColumn("ALTER TABLE products ADD COLUMN pcondition TEXT");
+    await safeAlterTableAddColumn("ALTER TABLE messages ADD COLUMN image_data TEXT");
 
     console.log("Turso schema ensured on startup");
   } catch (error) {
