@@ -1,0 +1,151 @@
+.shopsPage {
+  min-height: 100vh;
+  padding: 100px 6vw 40px;
+  background: linear-gradient(180deg, #f7fbff 0%, #eef4fb 100%);
+}
+
+.headerRow {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+
+  h1 {
+    font-size: 2rem;
+    color: #123b66;
+    margin: 0;
+  }
+}
+
+.backLink {
+  text-decoration: none;
+  color: #1f4f81;
+  background: #e9f2fb;
+  border: 1px solid #cfe1f3;
+  border-radius: 10px;
+  padding: 8px 12px;
+  font-weight: 600;
+}
+
+.loadingWrap,
+.emptyState {
+  min-height: 40vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #355678;
+}
+
+.shopList {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.shopCard {
+  background: #ffffff;
+  border: 1px solid #d8e4f3;
+  border-radius: 16px;
+  box-shadow: 0 10px 24px rgba(19, 59, 102, 0.08);
+  padding: 16px;
+}
+
+.shopHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  h2 {
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    color: #123b66;
+  }
+
+  p {
+    margin: 4px 0 0;
+    color: #57799c;
+  }
+}
+
+.verifiedBadge {
+  background: rgba(212, 175, 55, 0.18);
+  color: #8a6a09;
+  border: 1px solid rgba(212, 175, 55, 0.5);
+  border-radius: 999px;
+  padding: 3px 8px;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.ratingBadge {
+  color: #7a5600;
+  background: #fff7df;
+  border: 1px solid #efd58a;
+  border-radius: 999px;
+  padding: 5px 10px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.emptyProducts {
+  margin: 0;
+  color: #6d88a5;
+}
+
+.productGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.productCard {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  background: #f8fbff;
+  border: 1px solid #deebf8;
+  border-radius: 12px;
+  padding: 10px;
+  text-decoration: none;
+
+  img {
+    width: 64px;
+    height: 64px;
+    object-fit: cover;
+    border-radius: 8px;
+  }
+}
+
+.productName {
+  margin: 0;
+  color: #123b66;
+  font-weight: 700;
+}
+
+.productMeta {
+  margin: 2px 0;
+  color: #6484a5;
+  font-size: 0.85rem;
+}
+
+.productPrice {
+  margin: 0;
+  color: #1f5b90;
+  font-weight: 700;
+}
+
+@media only screen and (max-width: 700px) {
+  .shopsPage {
+    padding: 90px 4vw 24px;
+  }
+
+  .headerRow {
+    h1 {
+      font-size: 1.5rem;
+    }
+  }
+}

@@ -19,6 +19,7 @@ router.post("/deleteAccount", buyNsell.delAcc);
 router.get("/users/:id/verify/:token", buyNsell.verify);
 router.post("/logout", buyNsell.logout);
 router.post("/allprod", buyNsell.displayProd);
+router.post("/shops", buyNsell.getVerifiedShops);
 router.post("/sell", buyNsell.sell);
 router.post("/admin/pending-products", buyNsell.getPendingProducts);
 router.post("/admin/approve-product", buyNsell.approveProduct);

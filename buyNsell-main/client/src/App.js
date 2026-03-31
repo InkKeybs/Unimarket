@@ -8,6 +8,7 @@ import Login from "./pages/Login";
 import ResetPassword from "./pages/ResetPassword";
 import Profile from "./pages/Profile";
 import Product from "./pages/Product";
+import Shops from "./pages/Shops";
 import FixDeal from "./pages/FixDeal";
 import Chat from "./pages/Chat";
 import Admin from "./pages/Admin";
@@ -55,6 +56,7 @@ function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/buy-product/:prod/:seller/:buyer" element={<FixDeal />} />
         <Route path="/product/:prod" element={<Product />} />
+        <Route path="/shops" element={<Shops />} />
         <Route path="/chat/:productId/:otherUserId" element={<Chat />} />
       </Routes>
       <ChatWidget />

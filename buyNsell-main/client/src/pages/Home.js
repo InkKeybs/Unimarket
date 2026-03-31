@@ -1,5 +1,5 @@
 import styles from "./Home.module.scss";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import search from "../assets/search.svg";
 import table from "../assets/table.svg";
 import cycle from "../assets/cycle.svg";
@@ -14,6 +14,7 @@ import Card from "../components/Card/Card";
 import { LoaderIcon, toast } from "react-hot-toast";
 
 function Home() {
+  const navigate = useNavigate();
   console.log("Home component rendering...");
   const [loading, setLoading] = useState(true);
   const [searchval, setsearchval] = useState("");
@@ -85,9 +86,9 @@ function Home() {
   }, []);
 
   const [notification, setNotification] = useState(false);
-  const images = [table, chair, cycle, setsquare, coat, others, all];
+  const images = [table, chair, cycle, setsquare, coat, others, all, all];
   const [category, setCategory] = useState("all");
-  const catId = ["Gadgets", "Books", "Clothes", "Supplies", "Food", "Others", "All"];
+  const catId = ["Gadgets", "Books", "Clothes", "Supplies", "Food", "Others", "All", "Shops"];
   const handleSearch = () => {
     const query = searchval.trim();
     axios({
@@ -194,6 +195,10 @@ function Home() {
                 className={styles.categoryChip}
                 onClick={() => {
                   const id = catId[index];
+                  if (id === "Shops") {
+                    navigate("/shops");
+                    return;
+                  }
                   setCategory(id);
                   handleDisProd(id);
                 }}

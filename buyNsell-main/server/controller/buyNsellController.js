@@ -1060,6 +1060,52 @@ const searchproduct = async (req, res) => {
   }
 };
 
+const getVerifiedShops = async (req, res) => {
+  const client = getTursoClient();
+  try {
+    const now = new Date().toISOString();
+
+    const sellersResult = await client.execute({
+      sql: `SELECT id, name, mail, seller_verified, seller_rating, seller_rating_count
+            FROM users
+            WHERE seller_verified = 1
+            ORDER BY seller_rating DESC, seller_rating_count DESC, name ASC`,
+    });
+
+    const productsResult = await client.execute({
+      sql: `SELECT id, seller_id, pname, pprice, pimage, pcat, pdate, preg
+            FROM products
+            WHERE sold = 0
+              AND (status = 'approved' OR status IS NULL OR status = '')
+              AND (expires_at IS NULL OR expires_at > ?)
+            ORDER BY created_at DESC`,
+      args: [now],
+    });
+
+    const productsBySeller = new Map();
+    for (const product of productsResult.rows || []) {
+      const existing = productsBySeller.get(product.seller_id) || [];
+      existing.push(product);
+      productsBySeller.set(product.seller_id, existing);
+    }
+
+    const shops = (sellersResult.rows || []).map((seller) => ({
+      sellerId: seller.id,
+      name: seller.name,
+      mail: seller.mail,
+      sellerVerified: fromBoolInt(seller.seller_verified),
+      sellerRating: Number(seller.seller_rating || 0),
+      sellerRatingCount: Number(seller.seller_rating_count || 0),
+      products: productsBySeller.get(seller.id) || [],
+    }));
+
+    res.status(200).send({ error: false, shops });
+  } catch (error) {
+    console.log("Error loading verified shops:", error);
+    res.status(400).send({ error: true, message: "Failed to load verified shops" });
+  }
+};
+
 const toLegacyBidPayload = (bidRecord) => {
   if (!bidRecord) {
     return null;
@@ -1952,6 +1998,7 @@ module.exports = {
   delAcc,
   update,
   displayProd,
+  getVerifiedShops,
   searchproduct,
   sell,
   getPendingProducts,
