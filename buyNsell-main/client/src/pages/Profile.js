@@ -370,7 +370,10 @@ function Profile() {
               myProds.map((ele) => {
                 const productStatus = ele.status || "approved";
                 return (
-                  <div key={ele.pname} className={styles.mybidele}>
+                  <div
+                    key={ele.pname}
+                    className={`${styles.mybidele} ${isSellerVerified ? styles.verifiedListingBorder : ""}`}
+                  >
                     <Link
                       to={`/product/${ele.id}`}
                       className="flex flex-row items-center"

@@ -13,7 +13,7 @@ function Card({ ele }) {
       onClick={() => {
         handleClick();
       }}
-      className={styles.card}
+      className={`${styles.card} ${ele.sellerVerified ? styles.verifiedListing : ""}`}
     >
       <div className={styles.prodimage}>
         <img src={ele.pimage} alt="product"></img>
