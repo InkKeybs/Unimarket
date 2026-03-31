@@ -84,13 +84,6 @@ function Home() {
       });
   }, []);
 
-  const colorArray = [
-    "#000080",
-    "#000080",
-    "#000080",
-    "#000080",
-    "#000080",
-  ];
   const [notification, setNotification] = useState(false);
   const images = [table, chair, cycle, setsquare, coat, others, all];
   const [category, setCategory] = useState("all");
@@ -236,15 +229,7 @@ function Home() {
               <h3>Bid Notifications</h3>
               <button 
                 onClick={() => setNotification(false)}
-                style={{
-                  background: 'transparent',
-                  border: 'none',
-                  fontSize: '1.5rem',
-                  cursor: 'pointer',
-                  color: '#64748b',
-                  padding: '0',
-                  lineHeight: '1'
-                }}
+                className={styles.closeNotificationBtn}
               >
                 ×
               </button>
@@ -320,8 +305,8 @@ function Home() {
                 })}
               </div>
             ) : (
-              <div style={{ padding: '40px 20px', textAlign: 'center' }}>
-                <p style={{ color: '#64748b', fontSize: '0.95rem', margin: 0 }}>No notifications</p>
+              <div className={styles.emptyNotification}>
+                <p className={styles.emptyNotificationText}>No notifications</p>
               </div>
             )}
           </div>

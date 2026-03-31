@@ -8,16 +8,16 @@
   z-index: 100;
   justify-content: space-between;
   align-items: center;
-  background: rgba(0, 0, 128, 0.95);
+  background: var(--primary);
   backdrop-filter: blur(10px);
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--border);
 }
 
 #navLogo {
   font-size: 1.5rem;
   font-weight: 700;
-  color: white;
+  color: #ffffff;
   letter-spacing: -0.5px;
 }
 .loadingIc {
@@ -35,15 +35,15 @@
   max-width: calc(100vw - 40px);
   padding: 40px 20px;
   border-radius: 16px;
-  background: white;
+  background: var(--surface);
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   display: flex;
   align-items: center;
   justify-content: center;
   z-index: 200;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
   p {
-    color: #64748b;
+    color: var(--text-muted);
     font-size: 0.95rem;
     font-weight: 500;
   }
@@ -56,14 +56,14 @@
   width: 420px;
   max-width: calc(100vw - 40px);
   max-height: 600px;
-  background: white;
+  background: var(--surface);
   border-radius: 16px;
   box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   z-index: 200;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  border: 1px solid var(--border);
 }
 .bgNotification {
   position: fixed;
@@ -78,16 +78,16 @@
 
 .notificationHeader {
   padding: 20px 24px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.08);
+  border-bottom: 1px solid var(--border);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  background: #fafafa;
+  background: var(--muted);
   h3 {
     margin: 0;
     font-size: 1.1rem;
     font-weight: 700;
-    color: #0f172a;
+    color: var(--text-strong);
   }
 }
 
@@ -98,15 +98,15 @@
 }
 
 .notification {
-  background: white;
-  border: 1px solid rgba(0, 0, 0, 0.08);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 8px;
   transition: all 0.2s ease;
   &:hover {
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
-    border-color: rgba(0, 0, 128, 0.15);
+    border-color: var(--primary);
   }
 }
 
@@ -115,10 +115,10 @@
   p {
     font-size: 0.95rem;
     line-height: 1.5;
-    color: #334155;
+    color: var(--text);
     margin: 0;
     span {
-      color: #000080;
+      color: var(--primary);
       font-weight: 700;
     }
   }
@@ -137,18 +137,18 @@
     cursor: pointer;
     transition: all 0.2s ease;
     &:first-child {
-      background: linear-gradient(135deg, #000080, #4169e1);
-      color: white;
+      background: linear-gradient(135deg, var(--primary), #1d4ed8);
+      color: #ffffff;
       &:hover {
         transform: translateY(-2px);
         box-shadow: 0 4px 12px rgba(0, 0, 128, 0.3);
       }
     }
     &:last-child {
-      background: #f1f5f9;
-      color: #475569;
+      background: var(--muted);
+      color: var(--text);
       &:hover {
-        background: #e2e8f0;
+        filter: brightness(1.08);
       }
     }
   }
@@ -162,7 +162,7 @@
   flex-direction: row;
   align-items: center;
   border-radius: 12px;
-  background: white;
+  background: var(--surface);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
   transition: all 0.3s ease;
   input {
@@ -172,6 +172,7 @@
     border: none;
     background: transparent;
     font-size: 0.95rem;
+    color: var(--text);
   }
   input:focus {
     outline: none;
@@ -208,7 +209,7 @@
   display: flex;
   flex-direction: row;
   gap: 30px;
-  color: white;
+  color: #ffffff;
   font-weight: 500;
   div {
     cursor: pointer;
@@ -241,7 +242,7 @@
   min-height: 100vh;
   width: 100vw;
   padding: 100px 8vw 60px;
-  background: linear-gradient(180deg, #f8f9ff 0%, #ffffff 50%);
+  background: linear-gradient(180deg, var(--bg) 0%, var(--surface) 55%);
 }
 
 #hero {
@@ -251,13 +252,13 @@
   h1 {
     font-size: 2.4rem;
     font-weight: 800;
-    color: #0f172a;
+    color: var(--text-strong);
     margin-bottom: 12px;
     letter-spacing: -0.5px;
   }
   p {
     font-size: 1rem;
-    color: #475569;
+    color: var(--text-muted);
     font-weight: 500;
     line-height: 1.5;
     margin-bottom: 18px;
@@ -272,7 +273,7 @@
   display: flex;
   align-items: center;
   border-radius: 14px;
-  background: white;
+  background: var(--surface);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.08);
   overflow: hidden;
   transition: box-shadow 0.3s ease;
@@ -283,6 +284,7 @@
     padding: 0 16px;
     font-size: 0.95rem;
     background: transparent;
+    color: var(--text);
   }
   input:focus {
     outline: none;
@@ -290,7 +292,7 @@
   span {
     width: 52px;
     height: 100%;
-    background: linear-gradient(135deg, #000080, #4169e1);
+    background: linear-gradient(135deg, var(--primary), #1d4ed8);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -325,8 +327,8 @@
   gap: 10px;
   padding: 12px 16px;
   border-radius: 999px;
-  background: white;
-  border: 1px solid rgba(0, 0, 128, 0.12);
+  background: var(--surface);
+  border: 1px solid var(--border);
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
   cursor: pointer;
   transition: all 0.25s ease;
@@ -337,14 +339,35 @@
   span {
     font-size: 0.95rem;
     font-weight: 600;
-    color: #0f172a;
+    color: var(--text-strong);
   }
 }
 
 .categoryChip:hover {
   transform: translateY(-3px);
   box-shadow: 0 10px 24px rgba(0, 0, 128, 0.12);
-  border-color: rgba(0, 0, 128, 0.2);
+  border-color: var(--primary);
+}
+
+.closeNotificationBtn {
+  background: transparent;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  color: var(--text-muted);
+  padding: 0;
+  line-height: 1;
+}
+
+.emptyNotification {
+  padding: 40px 20px;
+  text-align: center;
+}
+
+.emptyNotificationText {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin: 0;
 }
 
 #productTitle {
@@ -411,7 +434,7 @@
     gap: 0.75rem;
     flex-wrap: wrap;
     justify-content: flex-end;
-    color: white;
+    color: #ffffff;
     #registerNav {
       border-left: 0.1rem solid #FFD700;
       padding-left: 0.5rem;
@@ -422,7 +445,7 @@
     min-height: 100vh;
     width: 100%;
     padding: 17vh 5vw;
-    background-color: white;
+    background-color: var(--bg);
   }
 
   #hero {
@@ -517,8 +540,8 @@
     left: 0;
   }
   .crossNotifi {
-    border-top: 15px solid white;
-    border-bottom: 15px solid white;
+    border-top: 15px solid var(--surface);
+    border-bottom: 15px solid var(--surface);
     padding: 0 20px;
     display: flex;
     align-items: center;
@@ -528,7 +551,7 @@
   .notifEl {
     display: flex;
     flex-direction: row;
-    border: 15px solid white;
+    border: 15px solid var(--surface);
     border-right: none;
     align-items: center;
     gap: 1rem;

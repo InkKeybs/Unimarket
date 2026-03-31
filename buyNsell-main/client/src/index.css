@@ -22,24 +22,23 @@
 }
 
 :root.dark {
-  /* Dark theme: Black and White */
-  --bg: #000000;
-  --text: #ffffff;
-  --primary: #ffffff;      /* white for accents */
-  --accent: #000000;       /* black */
-  --toothpaste: #ffffff;
-  --muted: #333333;        /* dark gray */
-  --success: #ffffff;  /* white for buttons */
-  --success-hover: #cccccc;
-  --success-dark: #ffffff;
-  --success-dark-2: #ffffff;
-  --danger: #ff0000;       /* red for danger */
-  --danger-strong: #ff0000;
-  --gray: #666666;
-  --border: #444444;
-  --surface: #111111;
-  --text-muted: #cccccc;
-  --text-strong: #ffffff;
+  --bg: #0b1220;
+  --text: #e5e7eb;
+  --primary: #2563eb;
+  --accent: #ffffff;
+  --toothpaste: #60a5fa;
+  --muted: #111827;
+  --success: #22c55e;
+  --success-hover: #16a34a;
+  --success-dark: #15803d;
+  --success-dark-2: #166534;
+  --danger: #ef4444;
+  --danger-strong: #dc2626;
+  --gray: #94a3b8;
+  --border: #334155;
+  --surface: #0f172a;
+  --text-muted: #94a3b8;
+  --text-strong: #f8fafc;
 }
 * {
   box-sizing: border-box;
