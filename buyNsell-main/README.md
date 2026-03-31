@@ -48,7 +48,7 @@ To create a working test account in your MongoDB users collection, run the seed 
 - Create a `.env` at the project `server/` folder (or update it) with at minimum:
 	- `ATLAS_KEY` — your MongoDB connection string
 	- optional: `SALT` — bcrypt salt rounds (default 10)
-	- optional: `SEED_USER_EMAIL`, `SEED_USER_PASSWORD`, `SEED_USER_NAME`, `SEED_USER_YEAR`, `SEED_USER_ADDRESS`, `SEED_USER_PHONE`, `SEED_USER_COURSE`
+	- optional: `SEED_USER_EMAIL`, `SEED_USER_PASSWORD`, `SEED_USER_NAME`, `SEED_USER_ADDRESS`, `SEED_USER_PHONE`, `SEED_USER_COURSE`
 
 - Run the script from the project root (PowerShell):
 

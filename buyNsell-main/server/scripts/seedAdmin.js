@@ -10,7 +10,6 @@ async function run() {
   const email = process.env.SEED_ADMIN_EMAIL || "admin@rtu.edu.ph";
   const password = process.env.SEED_ADMIN_PASSWORD || "AdminPass123!";
   const name = process.env.SEED_ADMIN_NAME || "Marketplace Admin";
-  const year = Number(process.env.SEED_ADMIN_YEAR) || 1;
   const address = process.env.SEED_ADMIN_ADDRESS || "RTU Campus";
   const phone = Number(process.env.SEED_ADMIN_PHONE) || 9000000000;
   const course = process.env.SEED_ADMIN_COURSE || "Administration";
@@ -37,13 +36,12 @@ async function run() {
     const now = toSqliteDatetime(new Date());
     await client.execute({
       sql: `INSERT INTO users
-            (id, name, mail, year, address, phone, password, course, verified, role, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, 'admin', ?, ?)`,
+            (id, name, mail, address, phone, password, course, verified, role, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, 1, 'admin', ?, ?)`,
       args: [
         crypto.randomUUID(),
         name,
         email,
-        year,
         address,
         String(phone),
         hashPassword,

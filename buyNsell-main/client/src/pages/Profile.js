@@ -44,7 +44,6 @@ function Profile() {
   const [data, setData] = useState({
     name: "",
     mail: "",
-    year: "",
     course: "",
     address: "",
     phone: "",
@@ -242,15 +241,6 @@ function Profile() {
             name="mail"
             value={data.mail}
             defaultValue={data.mail}
-          />
-        </div>
-        <div className={styles.profileAttribute}>
-          <label>Year:</label>
-          <input
-            type="number"
-            name="year"
-            value={data.year}
-            onChange={handleChange}
           />
         </div>
         <div className={styles.profileAttribute}>

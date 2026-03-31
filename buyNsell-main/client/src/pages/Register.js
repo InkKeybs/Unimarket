@@ -27,7 +27,6 @@ function Register() {
   const [data, setData] = useState({
     name: "",
     mail: "",
-    year: "",
     address: "",
     phone: "",
     password: "",
@@ -39,7 +38,6 @@ function Register() {
 
     if (data.name === "") { toast.error("Name field required!"); return; }
     if (!data.mail.endsWith("@rtu.edu.ph")) { toast.error("Please use your RTU email (must end with @rtu.edu.ph)!"); return; }
-    if (data.year === "") { toast.error("Please enter which year you're from!"); return; }
     if (data.address === "") { toast.error("Address field required!"); return; }
     if (Number(data.phone) < 9000000000 || Number(data.phone) > 9999999999) { toast.error("Please enter valid phone no.!"); return; }
     if (!/^(?=.*\d)(?=.*[a-z])(?=.*[A-Z]).{8,16}$/.test(data.password)) {
@@ -178,7 +176,6 @@ function Register() {
             <form id={styles.loginForm} onSubmit={handleSubmit}>
               <input required type="text" name="name" value={data.name} placeholder="name" onChange={handleChange} autoComplete="off" />
               <input required type="email" name="mail" value={data.mail} placeholder="email (@rtu.edu.ph)" onChange={handleChange} autoComplete="off" />
-              <input required type="number" name="year" value={data.year} placeholder="year" onChange={handleChange} autoComplete="off" />
               <input required type="text" name="address" value={data.address} placeholder="address" onChange={handleChange} autoComplete="off" />
               <input required type="number" name="phone" maxLength={10} minLength={10} placeholder="phone no." value={data.phone} onChange={handleChange} autoComplete="off" />
               <input required type="password" name="password" placeholder="password" minLength={8} maxLength={16} value={data.password} onChange={handleChange} autoComplete="off" />

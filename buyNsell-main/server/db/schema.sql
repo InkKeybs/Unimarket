@@ -4,7 +4,6 @@ CREATE TABLE IF NOT EXISTS users (
   id TEXT PRIMARY KEY,
   name TEXT NOT NULL,
   mail TEXT NOT NULL,
-  year INTEGER,
   address TEXT,
   phone TEXT,
   password TEXT,

@@ -597,7 +597,6 @@ const register = async (req, res) => {
       await updateUser(user.id, {
         name: req.body.name,
         mail: normalizedMail,
-        year: req.body.year,
         address: req.body.address,
         phone: req.body.phone,
         password: hashPassword,
@@ -622,7 +621,6 @@ const register = async (req, res) => {
       id: userId,
       name: req.body.name,
       mail: normalizedMail,
-      year: req.body.year,
       address: req.body.address,
       phone: req.body.phone,
       password: hashPassword,
@@ -1025,7 +1023,13 @@ const logout = async (req, res) => {
 
 const update = async (req, res) => {
   try {
-    const newData = req.body.newData;
+    const incomingData = req.body.newData || {};
+    const newData = {
+      name: incomingData.name,
+      course: incomingData.course,
+      address: incomingData.address,
+      phone: incomingData.phone,
+    };
     const id = req.body.id;
     await updateUser(id, newData);
     res.status(200).send({ error: false, message: "Updated successfully" });

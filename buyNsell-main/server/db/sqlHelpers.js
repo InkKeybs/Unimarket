@@ -54,14 +54,13 @@ const createUser = async (userData) => {
     const id = userData.id || crypto.randomUUID();
     await client.execute({
       sql: `INSERT INTO users 
-            (id, name, mail, year, address, phone, password, course, verified, 
+            (id, name, mail, address, phone, password, course, verified, 
              verification_expires_at, seller_verified, seller_rating, seller_rating_count, role, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)` ,
       args: [
         id,
         userData.name || '',
         userData.mail || '',
-        userData.year || null,
         userData.address || null,
         userData.phone || null,
         userData.password || '',
