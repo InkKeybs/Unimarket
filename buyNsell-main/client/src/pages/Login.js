@@ -79,12 +79,12 @@ function Login() {
           />
           <span id={styles.registerHere}>
             not a user?{" "}
-            <Link to="/register" style={{ color: "#ffd700" }}>
+            <Link to="/register" className={styles.linkAccent}>
               Sign Up
             </Link>
           </span>
           <span id={styles.forgotPassword}>
-            <Link to="/reset-password" style={{ color: "#ffd700" }}>
+            <Link to="/reset-password" className={styles.linkAccent}>
               Forgot Password?
             </Link>
           </span>
