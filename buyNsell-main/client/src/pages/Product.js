@@ -516,7 +516,13 @@ function Product() {
                         className={styles.chatButton}
                         onClick={() => {
                           if (window.openChatWidget) {
-                            window.openChatWidget(data._id, data.id, data.pname, sname);
+                            const chatProductId = data.id || data._id;
+                            const chatSellerId = data.seller_id || data.sellerId;
+                            if (!chatProductId || !chatSellerId) {
+                              toast.error("Unable to open chat for this product right now");
+                              return;
+                            }
+                            window.openChatWidget(chatProductId, chatSellerId, data.pname, sname);
                           }
                         }}
                       >

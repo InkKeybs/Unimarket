@@ -57,7 +57,7 @@ function Chat() {
       data: { id: productId },
     })
       .then((res) => {
-        setProductName(res.data.data.pname);
+        setProductName(res.data?.details?.data?.pname || "Product");
       })
       .catch((err) => console.log(err));
 
@@ -157,7 +157,7 @@ function Chat() {
               <div
                 key={index}
                 className={`${styles.message} ${
-                  msg.senderId._id === userId ? styles.sent : styles.received
+                  msg.senderId?._id === userId ? styles.sent : styles.received
                 }`}
               >
                 <div className={styles.messageContent}>{msg.message}</div>
