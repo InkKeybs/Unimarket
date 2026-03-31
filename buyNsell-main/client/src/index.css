@@ -91,6 +91,7 @@ body {
   overflow-x: hidden;
   background-color: var(--bg);
   color: var(--text);
+  padding-bottom: 52px;
 }
 
 a {

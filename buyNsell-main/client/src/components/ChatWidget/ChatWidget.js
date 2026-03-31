@@ -16,6 +16,16 @@ function ChatWidget() {
   const [unreadTotal, setUnreadTotal] = useState(0);
   const messagesEndRef = useRef(null);
 
+  const resetChatState = () => {
+    setIsAuthenticated(false);
+    setUserId("");
+    setChatList([]);
+    setActiveChat(null);
+    setMessages([]);
+    setIsOpen(false);
+    setUnreadTotal(0);
+  };
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -25,58 +35,51 @@ function ChatWidget() {
   }, [messages]);
 
   useEffect(() => {
-    const token = JSON.parse(localStorage.getItem("token"));
-    if (!token || token === "") {
-      setIsAuthenticated(false);
-      setUserId("");
-      setChatList([]);
-      setActiveChat(null);
-      setMessages([]);
-      setIsOpen(false);
-      return;
-    }
-
-    axios({
-      method: "post",
-      baseURL: `${process.env.REACT_APP_BASEURL}`,
-      url: "/api",
-      data: { token: token },
-    })
-      .then((response) => {
-        const myId = response.data.userid;
-        // Only update if user changed
-        if (myId !== userId) {
-          setUserId(myId);
-          setIsAuthenticated(true);
-          setChatList([]);
-          setActiveChat(null);
-          setMessages([]);
-          loadChatList(myId);
-        }
-      })
-      .catch((error) => {
-        console.log(error);
-        setIsAuthenticated(false);
-        setUserId("");
-        setChatList([]);
-        setActiveChat(null);
-        setMessages([]);
-      });
-
-    // Check auth status periodically
-    const authCheckInterval = setInterval(() => {
-      const currentToken = JSON.parse(localStorage.getItem("token"));
-      if (!currentToken || currentToken === "") {
-        setIsAuthenticated(false);
-        setUserId("");
-        setChatList([]);
-        setActiveChat(null);
-        setMessages([]);
-        setIsOpen(false);
+    const validateAuth = () => {
+      let token = null;
+      try {
+        token = JSON.parse(localStorage.getItem("token"));
+      } catch (err) {
+        token = null;
       }
-    }, 2000);
 
-    return () => clearInterval(authCheckInterval);
+      if (!token || token === "") {
+        resetChatState();
+        return;
+      }
+
+      axios({
+        method: "post",
+        baseURL: `${process.env.REACT_APP_BASEURL}`,
+        url: "/api",
+        data: { token: token },
+      })
+        .then((response) => {
+          const myId = response.data.userid;
+          setIsAuthenticated(true);
+          if (myId !== userId) {
+            setUserId(myId);
+            setChatList([]);
+            setActiveChat(null);
+            setMessages([]);
+          }
+          loadChatList(myId);
+        })
+        .catch((error) => {
+          console.log(error);
+          resetChatState();
+        });
+    };
+
+    validateAuth();
+
+    const authCheckInterval = setInterval(validateAuth, 10000);
+    window.addEventListener("focus", validateAuth);
+
+    return () => {
+      clearInterval(authCheckInterval);
+      window.removeEventListener("focus", validateAuth);
+    };
   }, [userId]);
 
   // Listen for external chat open events
@@ -191,31 +194,37 @@ function ChatWidget() {
     loadChatList(userId);
   };
 
-  if (!isAuthenticated) {
-    return null;
-  }
-
   return (
     <>
-      {/* Chat Bubble Button */}
       <div
-        className={`${styles.chatBubble} ${isOpen ? styles.open : ""}`}
-        onClick={() => setIsOpen(!isOpen)}
+        className={`${styles.chatLauncherBar} ${isOpen ? styles.open : ""}`}
+        onClick={() => {
+          if (!isAuthenticated) {
+            navigate("/login");
+            return;
+          }
+          setIsOpen(!isOpen);
+        }}
       >
-        {isOpen ? (
-          "✕"
-        ) : (
-          <>
-            💬
-            {unreadTotal > 0 && (
-              <span className={styles.badge}>{unreadTotal}</span>
-            )}
-          </>
+        <span className={styles.chatIcon}>💬</span>
+        <span className={styles.chatLabel}>
+          {isAuthenticated
+            ? isOpen
+              ? unreadTotal > 0
+                ? `Close Chats (${unreadTotal})`
+                : "Close Chats"
+              : unreadTotal > 0
+              ? `Open Chats (${unreadTotal})`
+              : "Open Chats"
+            : "Sign in to use chat"}
+        </span>
+        {isAuthenticated && unreadTotal > 0 && (
+          <span className={styles.badge}>{unreadTotal}</span>
         )}
       </div>
 
       {/* Chat Widget */}
-      {isOpen && (
+      {isAuthenticated && isOpen && (
         <div className={styles.chatWidget}>
           {!activeChat ? (
             // Chat List View
