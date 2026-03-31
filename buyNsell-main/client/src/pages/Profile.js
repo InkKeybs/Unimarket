@@ -50,6 +50,8 @@ function Profile() {
     phone: "",
   });
 
+  const isSellerVerified = Boolean(data.seller_verified ?? data.sellerVerified);
+
   const getStatusBadgeStyle = (status) => {
     switch (status) {
       case "pending":
@@ -357,7 +359,12 @@ function Profile() {
           </div>
         </div>
         <div>
-          <div className={styles.mybidtitle}>My Products</div>
+          <div className={styles.mybidtitle}>
+            My Products
+            {isSellerVerified ? (
+              <span className={styles.verifiedSellerBadge}>✓ Verified Seller</span>
+            ) : null}
+          </div>
           <div className={styles.mybidcontainer}>
             {myProds.length !== 0 ? (
               myProds.map((ele) => {
@@ -378,7 +385,12 @@ function Profile() {
                             flexWrap: "wrap",
                           }}
                         >
-                          <p className={styles.mybidname}>{ele.pname}</p>
+                          <p className={styles.mybidname}>
+                            {ele.pname}
+                            {isSellerVerified ? (
+                              <span className={styles.inlineVerifiedIcon}>✓</span>
+                            ) : null}
+                          </p>
                           <span
                             style={{
                               ...getStatusBadgeStyle(productStatus),

@@ -149,6 +149,19 @@
   margin: 40px 0 20px 0;
   border-bottom: 2px solid var(--border);
   padding-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.verifiedSellerBadge {
+  background: rgba(37, 99, 235, 0.14);
+  color: #1d4ed8;
+  border: 1px solid rgba(37, 99, 235, 0.35);
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.78rem;
+  font-weight: 700;
 }
 
 .mybidcontainer {
@@ -162,6 +175,24 @@
   font-weight: 600;
   color: var(--text-strong);
   margin-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.inlineVerifiedIcon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.18);
+  color: #1d4ed8;
+  border: 1px solid rgba(37, 99, 235, 0.36);
+  font-size: 0.8rem;
+  font-weight: 800;
+  line-height: 1;
 }
 
 .mybidele {
