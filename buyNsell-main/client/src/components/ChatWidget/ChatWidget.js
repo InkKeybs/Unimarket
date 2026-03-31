@@ -307,7 +307,7 @@ function ChatWidget() {
                     <div
                       key={index}
                       className={`${styles.message} ${
-                        msg.senderId._id === userId
+                        msg.senderId?._id === userId
                           ? styles.sent
                           : styles.received
                       }`}
@@ -316,7 +316,7 @@ function ChatWidget() {
                         {msg.message}
                       </div>
                       <div className={styles.messageTime}>
-                        {new Date(msg.timestamp).toLocaleTimeString()}
+                        {msg.timestamp ? new Date(msg.timestamp).toLocaleTimeString() : ""}
                       </div>
                     </div>
                   ))
