@@ -126,6 +126,9 @@ function Home() {
         <div id={styles.navLogo}>Unimarket</div>
         {valid ? (
           <div id={styles.navLinks}>
+            <div>
+              <Link to="/shops" className={styles.shopsPill}>Shops</Link>
+            </div>
             <div
               onClick={() => {
                 setNotification(!notification);
@@ -135,9 +138,6 @@ function Home() {
             </div>
             <div>
               <Link to="/sell">Sell</Link>
-            </div>
-            <div>
-              <Link to="/shops">Shops</Link>
             </div>
             {role === "admin" ? (
               <div>
@@ -153,7 +153,7 @@ function Home() {
         ) : (
           <div id={styles.navLinks}>
             <div>
-              <Link to="/shops">Shops</Link>
+              <Link to="/shops" className={styles.shopsPill}>Shops</Link>
             </div>
             <div>
               <Link to="/login">Login</Link>
