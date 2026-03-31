@@ -128,18 +128,46 @@ input[type="number"]::-webkit-outer-spin-button {
 
 .themeToggle {
   position: fixed;
-  left: 16px;
-  bottom: 16px;
+  right: 16px;
+  top: 16px;
   z-index: 1200;
-  min-width: 78px;
-  height: 40px;
-  border-radius: 999px;
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
   border: 1px solid var(--border);
   background: var(--surface);
   color: var(--text);
-  font-weight: 700;
+  display: grid;
+  place-items: center;
   cursor: pointer;
   box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2);
+}
+
+.themeToggleIcon {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: var(--text);
+  position: relative;
+}
+
+.themeToggle.isLight .themeToggleIcon {
+  background: #1f2937;
+}
+
+.themeToggle.isDark .themeToggleIcon {
+  background: #f9fafb;
+}
+
+.themeToggle.isDark .themeToggleIcon::after {
+  content: "";
+  position: absolute;
+  top: 2px;
+  left: 7px;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--surface);
 }
 
 .themeToggle:hover {
@@ -151,12 +179,23 @@ input[type="number"]::-webkit-outer-spin-button {
   outline-offset: 2px;
 }
 
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
 @media only screen and (max-width: 1000px) {
   .themeToggle {
-    left: 12px;
-    bottom: 12px;
-    min-width: 72px;
-    height: 36px;
-    font-size: 0.9rem;
+    right: 12px;
+    top: 12px;
+    width: 40px;
+    height: 40px;
   }
 }
