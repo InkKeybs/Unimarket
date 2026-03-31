@@ -9,6 +9,7 @@ const MAX_IMAGE_SIZE_BYTES = 14 * 1024 * 1024;
 function Sell() {
   const navigate = useNavigate();
   const [cat, setCat] = useState("Gadgets");
+  const [condition, setCondition] = useState("Used");
   const [id, setId] = useState("");
   const [gadgets, setGadgets] = useState(true);
   const [books, setBooks] = useState(false);
@@ -22,6 +23,7 @@ function Sell() {
     pdate: "",
     pprice: "",
     pdetail: "",
+    pcondition: "Used",
     pcat: "",
     pimage: "",
     id: "",
@@ -56,9 +58,9 @@ function Sell() {
   }, []);
   useEffect(() => {
     setData((prev) => {
-      return { ...prev, pcat: cat, pimage: image };
+      return { ...prev, pcat: cat, pimage: image, pcondition: condition };
     });
-  }, [cat, image]);
+  }, [cat, image, condition]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -104,6 +106,10 @@ function Sell() {
     }
     if (!data.pdate || data.pdate === "") {
       toast.error("Please select the date you bought the product!");
+      return;
+    }
+    if (!data.pcondition || data.pcondition.trim() === "") {
+      toast.error("Please select a product condition!");
       return;
     }
     toast.loading("Processing", { duration: 2000 });
@@ -278,6 +284,34 @@ function Sell() {
             />
             <span>Others</span>
           </label>
+        </div>
+
+        <div className={styles.sellinput}>
+          <span>Condition : </span>
+          <div className={styles.checkboxes}>
+            <label htmlFor="conditionNew" className={styles.categoryOption}>
+              <input
+                id="conditionNew"
+                type="radio"
+                name="condition"
+                value="Brand New"
+                onChange={(e) => setCondition(e.target.value)}
+                checked={condition === "Brand New"}
+              />
+              <span>Brand New</span>
+            </label>
+            <label htmlFor="conditionUsed" className={styles.categoryOption}>
+              <input
+                id="conditionUsed"
+                type="radio"
+                name="condition"
+                value="Used"
+                onChange={(e) => setCondition(e.target.value)}
+                checked={condition === "Used"}
+              />
+              <span>Used</span>
+            </label>
+          </div>
         </div>
 
         <div className={styles.sellinput}>

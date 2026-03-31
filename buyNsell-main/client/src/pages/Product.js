@@ -460,6 +460,9 @@ function Product() {
                 <p id={styles.pcat}> {data.pcat}</p>
                 <p id={styles.pdetail}>{data.pdetail}</p>
                 <p className={styles.metaLine}>
+                  condition : {data.pcondition || "Used"}
+                </p>
+                <p className={styles.metaLine}>
                   bought on : {data.pdate.slice(0, 10)}
                 </p>
                 <p className={styles.metaLine}>

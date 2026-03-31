@@ -70,6 +70,15 @@ const ensureSchemaOnStartup = async () => {
       await client.execute(statement);
     }
 
+    try {
+      await client.execute("ALTER TABLE products ADD COLUMN pcondition TEXT");
+    } catch (migrationError) {
+      const message = String(migrationError?.message || migrationError || "").toLowerCase();
+      if (!message.includes("duplicate column name")) {
+        throw migrationError;
+      }
+    }
+
     console.log("Turso schema ensured on startup");
   } catch (error) {
     console.log("Failed to ensure Turso schema:", error?.message || error);

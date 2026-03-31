@@ -332,7 +332,7 @@ const createProduct = async (productData) => {
       sql: `INSERT INTO products 
             (id, seller_id, pname, pprice, pdetail, pcondition, pdate, pimage, pcat, preg, 
              sold, status, expires_at, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
         productData.seller_id || productData.id,
