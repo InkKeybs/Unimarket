@@ -4,7 +4,62 @@ import { toast } from "react-hot-toast";
 import styles from "./ChatWidget.module.scss";
 import { useNavigate } from "react-router-dom";
 
-const MAX_CHAT_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
+const CHAT_IMAGE_MAX_DIMENSION = 1280;
+const CHAT_IMAGE_TARGET_BYTES = 900 * 1024;
+const CHAT_IMAGE_QUALITY_START = 0.82;
+const CHAT_IMAGE_QUALITY_MIN = 0.55;
+
+const getDataUrlByteSize = (dataUrl) => {
+  if (typeof dataUrl !== "string") return 0;
+  const parts = dataUrl.split(",");
+  if (parts.length !== 2 || !parts[0].includes(";base64")) return 0;
+  const base64Data = parts[1];
+  const padding = (base64Data.match(/=*$/) || [""])[0].length;
+  return Math.floor((base64Data.length * 3) / 4) - padding;
+};
+
+const loadImageFromDataUrl = (dataUrl) =>
+  new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("Failed to load image"));
+    img.src = dataUrl;
+  });
+
+const compressImageDataUrl = async (dataUrl) => {
+  const img = await loadImageFromDataUrl(dataUrl);
+  const canvas = document.createElement("canvas");
+
+  let { width, height } = img;
+  const largestSide = Math.max(width, height);
+  if (largestSide > CHAT_IMAGE_MAX_DIMENSION) {
+    const scale = CHAT_IMAGE_MAX_DIMENSION / largestSide;
+    width = Math.round(width * scale);
+    height = Math.round(height * scale);
+  }
+
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) {
+    throw new Error("Unable to process image");
+  }
+
+  ctx.drawImage(img, 0, 0, width, height);
+
+  let quality = CHAT_IMAGE_QUALITY_START;
+  let compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+
+  while (
+    getDataUrlByteSize(compressedDataUrl) > CHAT_IMAGE_TARGET_BYTES &&
+    quality > CHAT_IMAGE_QUALITY_MIN
+  ) {
+    quality -= 0.08;
+    compressedDataUrl = canvas.toDataURL("image/jpeg", quality);
+  }
+
+  return compressedDataUrl;
+};
 
 function ChatWidget() {
   const navigate = useNavigate();
@@ -16,6 +71,7 @@ function ChatWidget() {
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [selectedImage, setSelectedImage] = useState("");
+  const [enlargedImage, setEnlargedImage] = useState("");
   const [unreadTotal, setUnreadTotal] = useState(0);
   const messagesEndRef = useRef(null);
   const quickReplies = [
@@ -32,6 +88,7 @@ function ChatWidget() {
     setActiveChat(null);
     setMessages([]);
     setSelectedImage("");
+    setEnlargedImage("");
     setIsOpen(false);
     setUnreadTotal(0);
   };
@@ -95,7 +152,7 @@ function ChatWidget() {
   // Listen for external chat open events
   useEffect(() => {
     const handleOpenChat = (event) => {
-      const { productId, otherUserId, productName, otherUserName } = event.detail;
+      const { productId, otherUserId, productName, otherUserName, productImage } = event.detail;
       if (!userId || !isAuthenticated) return;
       
       setIsOpen(true);
@@ -104,6 +161,7 @@ function ChatWidget() {
         otherUserId,
         productName,
         otherUserName,
+        productImage,
       });
       loadMessages(userId, productId, otherUserId);
     };
@@ -205,16 +263,16 @@ function ChatWidget() {
     const selectedFile = e.target.files && e.target.files[0];
     if (!selectedFile) return;
 
-    if (selectedFile.size > MAX_CHAT_IMAGE_SIZE_BYTES) {
-      toast.error("Chat image must be 5MB or less");
-      e.target.value = "";
-      return;
-    }
-
     const reader = new FileReader();
     reader.readAsDataURL(selectedFile);
-    reader.onload = () => {
-      setSelectedImage(String(reader.result || ""));
+    reader.onload = async () => {
+      try {
+        const rawDataUrl = String(reader.result || "");
+        const compressedDataUrl = await compressImageDataUrl(rawDataUrl);
+        setSelectedImage(compressedDataUrl);
+      } catch (error) {
+        toast.error("Failed to compress selected image");
+      }
       e.target.value = "";
     };
     reader.onerror = () => {
@@ -327,7 +385,16 @@ function ChatWidget() {
                 </button>
                 <div className={styles.chatHeaderInfo}>
                   <h3>{activeChat.otherUserName}</h3>
-                  <small>{activeChat.productName}</small>
+                  <div className={styles.headerProductMeta}>
+                    {activeChat.productImage ? (
+                      <img
+                        src={activeChat.productImage}
+                        alt={activeChat.productName || "product"}
+                        className={styles.headerProductImage}
+                      />
+                    ) : null}
+                    <small>{activeChat.productName || "Product chat"}</small>
+                  </div>
                 </div>
                 <button
                   className={styles.closeButton}
@@ -355,7 +422,12 @@ function ChatWidget() {
                       <div className={styles.messageContent}>
                         {msg.message ? <div>{msg.message}</div> : null}
                         {msg.imageData ? (
-                          <img src={msg.imageData} alt="chat upload" className={styles.messageImage} />
+                          <img
+                            src={msg.imageData}
+                            alt="chat upload"
+                            className={styles.messageImage}
+                            onClick={() => setEnlargedImage(msg.imageData)}
+                          />
                         ) : null}
                       </div>
                       <div className={styles.messageTime}>
@@ -399,6 +471,7 @@ function ChatWidget() {
                   className={styles.chatFileInput}
                   onChange={handleImagePick}
                 />
+                <span className={styles.attachHint}>Auto-compressed before send</span>
                 <input
                   type="text"
                   placeholder="Type a message..."
@@ -411,6 +484,19 @@ function ChatWidget() {
           )}
         </div>
       )}
+      {enlargedImage ? (
+        <div
+          className={styles.imageModalBackdrop}
+          onClick={() => setEnlargedImage("")}
+        >
+          <img
+            src={enlargedImage}
+            alt="enlarged chat upload"
+            className={styles.imageModalContent}
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      ) : null}
     </>
   );
 }

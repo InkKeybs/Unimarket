@@ -43,7 +43,6 @@ const OTP_TTL_MINUTES = 10;
 const UNVERIFIED_ACCOUNT_TTL_MS = 60 * 60 * 1000;
 const LISTING_EXPIRY_DAYS = parseInt(process.env.LISTING_EXPIRY_DAYS) || 7;
 const MAX_PRODUCT_IMAGE_BYTES = 14 * 1024 * 1024;
-const MAX_CHAT_IMAGE_BYTES = 5 * 1024 * 1024;
 const PRODUCT_APPROVAL_STATUS = {
   PENDING: "pending",
   APPROVED: "approved",
@@ -1606,14 +1605,6 @@ const sendMessage = async (req, res) => {
       const isDataUrlImage = /^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(String(imageData));
       if (!isDataUrlImage) {
         return res.status(400).send({ error: true, message: "Invalid image format" });
-      }
-
-      const imageSizeInBytes = getDataUrlByteSize(String(imageData));
-      if (imageSizeInBytes > MAX_CHAT_IMAGE_BYTES) {
-        return res.status(413).send({
-          error: true,
-          message: "Chat image size must be 5MB or less",
-        });
       }
     }
 

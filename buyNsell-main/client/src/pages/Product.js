@@ -522,7 +522,7 @@ function Product() {
                               toast.error("Unable to open chat for this product right now");
                               return;
                             }
-                            window.openChatWidget(chatProductId, chatSellerId, data.pname, sname);
+                            window.openChatWidget(chatProductId, chatSellerId, data.pname, sname, data.pimage);
                           }
                         }}
                       >

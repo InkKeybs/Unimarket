@@ -138,6 +138,21 @@
   flex: 1;
 }
 
+.headerProductMeta {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 2px;
+}
+
+.headerProductImage {
+  width: 22px;
+  height: 22px;
+  border-radius: 6px;
+  object-fit: cover;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+}
+
 .backButton,
 .closeButton {
   background: transparent;
@@ -298,6 +313,26 @@
   width: min(220px, 100%);
   border-radius: 10px;
   border: 1px solid var(--border);
+  cursor: zoom-in;
+}
+
+.imageModalBackdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+  padding: 24px;
+}
+
+.imageModalContent {
+  max-width: min(92vw, 900px);
+  max-height: 88vh;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
 }
 
 .messageTime {
@@ -376,6 +411,13 @@
   background: var(--muted);
   color: var(--text);
   font-size: 1rem;
+}
+
+.attachHint {
+  font-size: 0.72rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  align-self: center;
 }
 
 .messageInput {
