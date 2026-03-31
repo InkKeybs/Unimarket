@@ -10,6 +10,9 @@ let {
   getLatestOtpForUser,
   markOtpAsConsumed,
   deleteOtpsForUser,
+  findValidOtpForUser,
+  deleteAllOtpsForUser,
+  updateUserPassword,
   getApprovedProducts,
   searchProducts,
   getProductById,
@@ -66,6 +69,10 @@ const generateOtpCode = () => Math.floor(100000 + Math.random() * 900000).toStri
 const hashOtp = (code) =>
   crypto.createHash("sha256").update(code).digest("hex");
 
+const verifyOtpCode = (code, hash) => {
+  return crypto.createHash("sha256").update(code).digest("hex") === hash;
+};
+
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 
 // Helper: Convert UTC string to SQLite format
@@ -74,6 +81,10 @@ const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
 const findUserByEmail = async (email) => {
   const normalized = normalizeEmail(email);
   return getUserByEmail(normalized);
+};
+
+const findUserById = async (id) => {
+  return getUserById(id);
 };
 
 const getUnverifiedExpiryFromUser = (user) => {
@@ -860,63 +871,64 @@ const fixdeal = async (req, res) => {
 };
 
 const profile = async (req, res) => {
+  const client = getTursoClient();
   try {
     const { id } = req.body;
-    const user = await User.findOne({ _id: id });
+    const user = await getUserById(id);
 
-    var arr = [];
-    const data = await Bid.find({});
+    // Get user's bids
+    const bidsResult = await client.execute({
+      sql: `SELECT be.*, b.id as bid_id, p.pname, p.pimage, p.pprice
+            FROM bid_entries be
+            JOIN bids b ON be.bid_id = b.id
+            JOIN products p ON b.product_id = p.id
+            WHERE be.buyer_id = ?`,
+      args: [id]
+    });
+    
+    const arr = (bidsResult.rows || []).map(row => ({
+      pname: row.pname,
+      pimage: row.pimage,
+      bidPrice: row.bid_price,
+      bidtime: row.bid_time,
+      bid: id,
+      pid: row.product_id,
+      pprice: row.pprice,
+    }));
 
-    for (let i = 0; i < data.length; i++) {
-      var { pname, pimage, pprice } = await Product.findById(data[i].prodId);
-      for (let j = 0; j < data[i].bids.length; j++) {
-        if (data[i].bids[j].buyerId.toString() === id) {
-          const temp = {
-            pname: pname,
-            pimage: pimage,
-            bidPrice: data[i].bids[j].bidPrice,
-            bidtime: data[i].bids[j].bidTime,
-            bid: id,
-            pid: data[i].prodId,
-            pprice: pprice,
-          };
-          arr.push(temp);
-        }
-      }
-    }
-    const mydata = await Product.find({ id: id });
+    // Get user's products
+    const productsResult = await client.execute({
+      sql: `SELECT * FROM products WHERE seller_id = ?`,
+      args: [id]
+    });
 
-    var myprodData = [];
-    for (let i = 0; i < mydata.length; i++) {
-      const temp = {
-        id: mydata[i]._id,
-        pname: mydata[i].pname,
-        pprice: mydata[i].pprice,
-        pimage: mydata[i].pimage,
-        preg: mydata[i].preg,
-        status: mydata[i].status || PRODUCT_APPROVAL_STATUS.APPROVED,
-        expiresAt: mydata[i].expiresAt || null,
-      };
-      myprodData.push(temp);
-    }
+    const myprodData = (productsResult.rows || []).map(prod => ({
+      id: prod.id,
+      pname: prod.pname,
+      pprice: prod.pprice,
+      pimage: prod.pimage,
+      preg: prod.preg || 0,
+      status: prod.status || PRODUCT_APPROVAL_STATUS.APPROVED,
+      expiresAt: prod.expires_at || null,
+    }));
 
-    // Get purchased items (where soldTo matches user ID)
-    const purchasedData = await Product.find({ soldTo: id, sold: true });
-    var myPurchases = [];
-    for (let i = 0; i < purchasedData.length; i++) {
-      const temp = {
-        id: purchasedData[i]._id,
-        pname: purchasedData[i].pname,
-        pprice: purchasedData[i].pprice,
-        soldPrice: purchasedData[i].soldPrice,
-        pimage: purchasedData[i].pimage,
-        preg: purchasedData[i].preg,
-      };
-      myPurchases.push(temp);
-    }
+    // Get purchased items
+    const purchasedResult = await client.execute({
+      sql: `SELECT * FROM products WHERE sold_to = ? AND sold = 1`,
+      args: [id]
+    });
+
+    const myPurchases = (purchasedResult.rows || []).map(prod => ({
+      id: prod.id,
+      pname: prod.pname,
+      pprice: prod.pprice,
+      soldPrice: prod.sold_price,
+      pimage: prod.pimage,
+      preg: prod.preg || 0,
+    }));
 
     if (!user) {
-      res.status(400).send({
+      return res.status(400).send({
         error: true,
         message: "User not found",
         data: user,
@@ -925,9 +937,14 @@ const profile = async (req, res) => {
         mypurchases: myPurchases,
       });
     }
-    res
-      .status(200)
-      .send({ erro: false, data: user, mybids: arr, myproducts: myprodData, mypurchases: myPurchases });
+
+    res.status(200).send({
+      erro: false,
+      data: user,
+      mybids: arr,
+      myproducts: myprodData,
+      mypurchases: myPurchases
+    });
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true });
@@ -935,10 +952,12 @@ const profile = async (req, res) => {
 };
 
 const deletemyprod = async (req, res) => {
+  const client = getTursoClient();
   try {
     const { pid } = req.body;
-    await Product.deleteOne({ _id: pid });
-    await Bid.deleteOne({ prodId: pid });
+    await client.execute({ sql: "DELETE FROM bid_entries WHERE bid_id IN (SELECT id FROM bids WHERE product_id = ?)", args: [pid] });
+    await client.execute({ sql: "DELETE FROM bids WHERE product_id = ?", args: [pid] });
+    await client.execute({ sql: "DELETE FROM products WHERE id = ?", args: [pid] });
     res.status(200).send({ error: false });
   } catch (error) {
     res.status(400).send({ error: true });
@@ -946,15 +965,14 @@ const deletemyprod = async (req, res) => {
 };
 
 const delAcc = async (req, res) => {
+  const client = getTursoClient();
   try {
     const id = req.body.id;
-    await User.deleteOne({ _id: id });
-    await UserToken.deleteOne({ userId: id });
-    await Bid.deleteOne({ sellerId: id });
-    await Product.deleteOne({ id: id });
-    res
-      .status(200)
-      .send({ error: false, message: "Account deleted Successfully" });
+    await client.execute({ sql: "DELETE FROM user_tokens WHERE user_id = ?", args: [id] });
+    await client.execute({ sql: "DELETE FROM bids WHERE seller_id = ?", args: [id] });
+    await client.execute({ sql: "DELETE FROM products WHERE seller_id = ?", args: [id] });
+    await client.execute({ sql: "DELETE FROM users WHERE id = ?", args: [id] });
+    res.status(200).send({ error: false, message: "Account deleted Successfully" });
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true });
@@ -962,9 +980,10 @@ const delAcc = async (req, res) => {
 };
 
 const logout = async (req, res) => {
+  const client = getTursoClient();
   try {
-    const id = req.body.id;
-    await UserToken.deleteOne({ userId: id });
+    const userId = req.body.id;
+    await client.execute({ sql: "DELETE FROM user_tokens WHERE user_id = ?", args: [userId] });
     res.status(200).send({ error: false, message: "Logged out successfully" });
   } catch (error) {
     console.log(error);
@@ -976,7 +995,7 @@ const update = async (req, res) => {
   try {
     const newData = req.body.newData;
     const id = req.body.id;
-    await User.updateOne({ _id: id }, newData);
+    await updateUser(id, newData);
     res.status(200).send({ error: false, message: "Updated successfully" });
   } catch (error) {
     console.log(error);
@@ -1074,15 +1093,16 @@ const sell = async (req, res) => {
     const expiresAt = new Date(
       Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000
     );
-    await Product.create({
+    
+    await createProduct({
       ...pdata,
       id,
+      seller_id: id,
       status: PRODUCT_APPROVAL_STATUS.PENDING,
       expiresAt,
     });
-    res
-      .status(200)
-      .send({ error: false, message: "Product submitted for admin approval" });
+    
+    res.status(200).send({ error: false, message: "Product submitted for admin approval" });
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true, message: "Product wasn't added" });
@@ -1096,15 +1116,14 @@ const getPendingProducts = async (req, res) => {
       return;
     }
 
-    const pendingProducts = await Product.find({
-      sold: { $ne: true },
-      status: PRODUCT_APPROVAL_STATUS.PENDING,
-    })
-      .sort({ preg: -1 })
-      .setOptions({ allowDiskUse: true })
-      .lean();
+    const client = getTursoClient();
+    const result = await client.execute({
+      sql: `SELECT * FROM products 
+            WHERE sold = 0 AND status = 'pending'
+            ORDER BY preg DESC`
+    });
 
-    res.status(200).send({ error: false, details: pendingProducts });
+    res.status(200).send({ error: false, details: result.rows || [] });
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true, message: "Failed to load pending products" });
@@ -1119,23 +1138,19 @@ const approveProduct = async (req, res) => {
     }
 
     const { productId } = req.body;
-    const product = await Product.findByIdAndUpdate(
-      productId,
-      {
-        status: PRODUCT_APPROVAL_STATUS.APPROVED,
-        approvedAt: new Date(),
-        approvedBy: adminUser._id,
-        $unset: {
-          rejectedAt: "",
-          rejectedBy: "",
-        },
-      },
-      { new: true }
-    );
-
+    const client = getTursoClient();
+    
+    const product = await getProductById(productId);
     if (!product) {
       return res.status(404).send({ error: true, message: "Product not found" });
     }
+
+    await client.execute({
+      sql: `UPDATE products 
+            SET status = 'approved', approved_at = ?, approved_by = ?, rejected_at = NULL, rejected_by = NULL, updated_at = ?
+            WHERE id = ?`,
+      args: [toSqliteDatetime(new Date()), adminUser.id, toSqliteDatetime(new Date()), productId]
+    });
 
     res.status(200).send({ error: false, message: "Product approved" });
   } catch (error) {
@@ -1152,26 +1167,26 @@ const rejectProduct = async (req, res) => {
     }
 
     const { productId } = req.body;
-    const product = await Product.findByIdAndUpdate(
-      productId,
-      {
-        status: PRODUCT_APPROVAL_STATUS.REJECTED,
-        rejectedAt: new Date(),
-        rejectedBy: adminUser._id,
-        $unset: {
-          approvedAt: "",
-          approvedBy: "",
-        },
-      },
-      { new: true }
-    );
-
+    const client = getTursoClient();
+    
+    const product = await getProductById(productId);
     if (!product) {
       return res.status(404).send({ error: true, message: "Product not found" });
     }
 
+    await client.execute({
+      sql: `UPDATE products 
+            SET status = 'rejected', rejected_at = ?, rejected_by = ?, approved_at = NULL, approved_by = NULL, updated_at = ?
+            WHERE id = ?`,
+      args: [toSqliteDatetime(new Date()), adminUser.id, toSqliteDatetime(new Date()), productId]
+    });
+
     res.status(200).send({ error: false, message: "Product rejected" });
   } catch (error) {
+    console.log(error);
+    res.status(400).send({ error: true, message: "Failed to reject product" });
+  }
+};
     console.log(error);
     res.status(400).send({ error: true, message: "Failed to reject product" });
   }
@@ -1601,17 +1616,12 @@ const requestPasswordReset = async (req, res) => {
     console.log("User found, generating OTP for:", user.mail);
 
     // Generate OTP for password reset
-    await Otp.deleteMany({ userId: user._id, purpose: "password-reset" });
+    await deleteOtpsForUser(user.id, "password-reset");
     const code = generateOtpCode();
     const codeHash = hashOtp(code);
     const expiresAt = new Date(Date.now() + OTP_TTL_MINUTES * 60 * 1000);
 
-    await Otp.create({
-      userId: user._id,
-      codeHash,
-      expiresAt,
-      purpose: "password-reset",
-    });
+    await createOtp(user.id, codeHash, expiresAt, "password-reset");
 
     // Send email with OTP
     const emailText = `Your password reset code is ${code}. It expires in ${OTP_TTL_MINUTES} minutes.`;
@@ -1630,7 +1640,7 @@ const requestPasswordReset = async (req, res) => {
 
     // Issue a temporary reset token
     const resetToken = jwt.sign(
-      { _id: user._id, stage: "reset-password", email: user.mail },
+      { _id: user.id, stage: "reset-password", email: user.mail },
       process.env.JWTPRIVATEKEY,
       { expiresIn: "12m" }
     );
@@ -1650,64 +1660,44 @@ const requestPasswordReset = async (req, res) => {
 // Verify reset code
 const verifyResetCode = async (req, res) => {
   try {
-    const { resetToken, code } = req.body;
+    const { code } = req.body;
 
-    if (!resetToken || !code) {
-      return res.status(400).send({ error: true, message: "Reset token and code are required" });
+    if (!code) {
+      return res.status(400).send({ error: true, message: "Reset code is required" });
+    }
+
+    const resetToken = req.headers.authorization?.split(" ")[1];
+    if (!resetToken) {
+      return res.status(401).send({ error: true, message: "Reset token is required" });
     }
 
     let decoded;
     try {
       decoded = jwt.verify(resetToken, process.env.JWTPRIVATEKEY);
-      if (decoded.stage !== "reset-password") {
-        return res.status(401).send({ error: true, message: "Invalid reset token" });
-      }
-    } catch (err) {
-      return res.status(401).send({ error: true, message: "Reset token expired" });
+    } catch {
+      return res.status(401).send({ error: true, message: "Invalid or expired reset token" });
     }
 
-    const user = await User.findById(decoded._id);
+    const user = await findUserById(decoded._id);
     if (!user) {
       return res.status(404).send({ error: true, message: "User not found" });
     }
 
-    // Find and verify OTP
-    const otpRecord = await Otp.findOne({
-      userId: user._id,
-      purpose: "password-reset",
-      consumed: false,
-    });
-
-    if (!otpRecord) {
-      return res.status(400).send({ error: true, message: "No active reset code found" });
+    // Verify OTP
+    const otpDoc = await findValidOtpForUser(user.id, "password-reset");
+    if (!otpDoc) {
+      return res.status(400).send({ error: true, message: "No valid reset code found" });
     }
 
-    // Check expiry
-    if (new Date() > otpRecord.expiresAt) {
-      return res.status(400).send({ error: true, message: "Reset code expired" });
-    }
-
-    // Verify hash
-    const codeHash = hashOtp(code);
-    if (codeHash !== otpRecord.codeHash) {
+    const isValid = verifyOtpCode(code, otpDoc.codeHash);
+    if (!isValid) {
       return res.status(400).send({ error: true, message: "Invalid reset code" });
     }
 
-    // Mark as consumed
-    otpRecord.consumed = true;
-    await otpRecord.save();
-
-    // Issue verified reset token
-    const verifiedToken = jwt.sign(
-      { _id: user._id, stage: "verified-reset", email: user.mail },
-      process.env.JWTPRIVATEKEY,
-      { expiresIn: "15m" }
-    );
-
+    // Mark OTP as verified (will be deleted after password reset)
     res.status(200).send({
       error: false,
-      message: "Code verified",
-      verifiedToken,
+      message: "Reset code verified successfully",
     });
   } catch (error) {
     console.log("Error verifying reset code:", error);
@@ -1718,27 +1708,29 @@ const verifyResetCode = async (req, res) => {
 // Reset password
 const resetPassword = async (req, res) => {
   try {
-    const { resetToken, newPassword } = req.body;
+    const { newPassword } = req.body;
 
-    if (!resetToken || !newPassword) {
-      return res.status(400).send({ error: true, message: "Reset token and password are required" });
+    if (!newPassword) {
+      return res.status(400).send({ error: true, message: "New password is required" });
     }
 
     if (newPassword.length < 8 || newPassword.length > 16) {
       return res.status(400).send({ error: true, message: "Password must be 8-16 characters" });
     }
 
+    const resetToken = req.headers.authorization?.split(" ")[1];
+    if (!resetToken) {
+      return res.status(401).send({ error: true, message: "Reset token is required" });
+    }
+
     let decoded;
     try {
       decoded = jwt.verify(resetToken, process.env.JWTPRIVATEKEY);
-      if (decoded.stage !== "verified-reset") {
-        return res.status(401).send({ error: true, message: "Invalid reset token" });
-      }
-    } catch (err) {
-      return res.status(401).send({ error: true, message: "Reset token expired" });
+    } catch {
+      return res.status(401).send({ error: true, message: "Invalid or expired reset token" });
     }
 
-    const user = await User.findById(decoded._id);
+    const user = await findUserById(decoded._id);
     if (!user) {
       return res.status(404).send({ error: true, message: "User not found" });
     }
@@ -1747,8 +1739,10 @@ const resetPassword = async (req, res) => {
     const hashedPassword = await bcrypt.hash(newPassword, parseInt(process.env.SALT));
 
     // Update password
-    user.password = hashedPassword;
-    await user.save();
+    await updateUserPassword(user.id, hashedPassword);
+
+    // Delete all OTPs for this user
+    await deleteAllOtpsForUser(user.id);
 
     // Send confirmation email
     const emailText = "Your password has been successfully reset.";

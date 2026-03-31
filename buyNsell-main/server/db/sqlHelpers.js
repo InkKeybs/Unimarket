@@ -194,6 +194,51 @@ const deleteOtpsForUser = async (userId, purpose) => {
   }
 };
 
+const findValidOtpForUser = async (userId, purpose) => {
+  const client = getTursoClient();
+  try {
+    const now = new Date().toISOString();
+    const result = await client.execute({
+      sql: `SELECT * FROM otps 
+            WHERE user_id = ? AND purpose = ? AND consumed = 0 AND expires_at > ?
+            ORDER BY created_at DESC LIMIT 1`,
+      args: [userId, purpose, now]
+    });
+    return result.rows.length > 0 ? result.rows[0] : null;
+  } catch (error) {
+    console.log("Error finding valid OTP:", error);
+    return null;
+  }
+};
+
+const deleteAllOtpsForUser = async (userId) => {
+  const client = getTursoClient();
+  try {
+    await client.execute({
+      sql: "DELETE FROM otps WHERE user_id = ?",
+      args: [userId]
+    });
+    return true;
+  } catch (error) {
+    console.log("Error deleting all OTPs:", error);
+    throw error;
+  }
+};
+
+const updateUserPassword = async (userId, hashedPassword) => {
+  const client = getTursoClient();
+  try {
+    await client.execute({
+      sql: "UPDATE users SET password = ?, updated_at = ? WHERE id = ?",
+      args: [hashedPassword, toSqliteDatetime(new Date()), userId]
+    });
+    return true;
+  } catch (error) {
+    console.log("Error updating user password:", error);
+    throw error;
+  }
+};
+
 // Product queries
 const getApprovedProducts = async () => {
   const client = getTursoClient();
@@ -526,11 +571,14 @@ module.exports = {
   createUser,
   updateUser,
   deleteUser,
+  updateUserPassword,
   // OTP
   createOtp,
   getLatestOtpForUser,
   markOtpAsConsumed,
   deleteOtpsForUser,
+  findValidOtpForUser,
+  deleteAllOtpsForUser,
   // Product
   getApprovedProducts,
   searchProducts,
