@@ -312,6 +312,23 @@ const issuePendingRegisterToken = (userId) =>
     expiresIn: "15m",
   });
 
+const normalizeProductId = (value) => {
+  if (typeof value === "string" || typeof value === "number") {
+    const normalized = String(value).trim();
+    return normalized || null;
+  }
+
+  if (value && typeof value === "object") {
+    const candidate = value.id || value._id || value.productId || value.value;
+    if (typeof candidate === "string" || typeof candidate === "number") {
+      const normalized = String(candidate).trim();
+      return normalized || null;
+    }
+  }
+
+  return null;
+};
+
 const createAndSendOtp = async (user) => {
   const client = getTursoClient();
   try {
@@ -1171,7 +1188,10 @@ const approveProduct = async (req, res) => {
       return;
     }
 
-    const { productId } = req.body;
+    const productId = normalizeProductId(req.body?.productId);
+    if (!productId) {
+      return res.status(400).send({ error: true, message: "Invalid productId" });
+    }
     const client = getTursoClient();
     
     const product = await getProductById(productId);
@@ -1200,7 +1220,10 @@ const rejectProduct = async (req, res) => {
       return;
     }
 
-    const { productId } = req.body;
+    const productId = normalizeProductId(req.body?.productId);
+    if (!productId) {
+      return res.status(400).send({ error: true, message: "Invalid productId" });
+    }
     const client = getTursoClient();
     
     const product = await getProductById(productId);
@@ -1261,7 +1284,10 @@ const adminDeleteProduct = async (req, res) => {
     const adminUser = await requireAdminUser(req, res);
     if (!adminUser) return;
 
-    const { productId } = req.body;
+    const productId = normalizeProductId(req.body?.productId);
+    if (!productId) {
+      return res.status(400).send({ error: true, message: "Invalid productId" });
+    }
     const client = getTursoClient();
     const product = await getProductById(productId);
     if (!product) {

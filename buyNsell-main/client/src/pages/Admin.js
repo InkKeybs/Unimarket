@@ -130,6 +130,8 @@ function Admin() {
     );
   };
 
+  const getProductId = (item) => item?.id || item?._id;
+
   return (
     <div className={styles.adminPage}>
       {/* Confirm delete modal */}
@@ -180,8 +182,8 @@ function Admin() {
           ) : (
             <div className={styles.listWrap}>
               {pending.map((item) => (
-                <div key={item._id} className={styles.itemCard}>
-                  <Link to={`/product/${item._id}`} className={styles.itemMain}>
+                <div key={getProductId(item)} className={styles.itemCard}>
+                  <Link to={`/product/${getProductId(item)}`} className={styles.itemMain}>
                     <img src={item.pimage} alt={item.pname} />
                     <div>
                       <p className={styles.productName}>{item.pname}</p>
@@ -191,9 +193,9 @@ function Admin() {
                     </div>
                   </Link>
                   <div className={styles.actionCol}>
-                    <button type="button" onClick={() => handleReview(item._id, "approve")} className={styles.approveBtn}>Approve</button>
-                    <button type="button" onClick={() => handleReview(item._id, "reject")} className={styles.rejectBtn}>Reject</button>
-                    <button type="button" onClick={() => setConfirmDelete(item._id)} className={styles.deleteBtn}>Delete</button>
+                    <button type="button" onClick={() => handleReview(getProductId(item), "approve")} className={styles.approveBtn}>Approve</button>
+                    <button type="button" onClick={() => handleReview(getProductId(item), "reject")} className={styles.rejectBtn}>Reject</button>
+                    <button type="button" onClick={() => setConfirmDelete(getProductId(item))} className={styles.deleteBtn}>Delete</button>
                   </div>
                 </div>
               ))}
@@ -231,8 +233,8 @@ function Admin() {
           ) : (
             <div className={styles.listWrap}>
               {allItems.map((item) => (
-                <div key={item._id} className={styles.itemCard}>
-                  <Link to={`/product/${item._id}`} className={styles.itemMain}>
+                <div key={getProductId(item)} className={styles.itemCard}>
+                  <Link to={`/product/${getProductId(item)}`} className={styles.itemMain}>
                     <img src={item.pimage} alt={item.pname} />
                     <div>
                       <p className={styles.productName}>{item.pname}</p>
@@ -243,7 +245,7 @@ function Admin() {
                     </div>
                   </Link>
                   <div className={styles.actionCol}>
-                    <button type="button" onClick={() => setConfirmDelete(item._id)} className={styles.deleteBtn}>Delete</button>
+                    <button type="button" onClick={() => setConfirmDelete(getProductId(item))} className={styles.deleteBtn}>Delete</button>
                   </div>
                 </div>
               ))}

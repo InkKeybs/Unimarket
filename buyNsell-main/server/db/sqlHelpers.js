@@ -297,9 +297,25 @@ const searchProducts = async (searchTerms) => {
 const getProductById = async (productId) => {
   const client = getTursoClient();
   try {
+    let normalizedProductId = productId;
+    if (typeof normalizedProductId === "number") {
+      normalizedProductId = String(normalizedProductId);
+    }
+    if (normalizedProductId && typeof normalizedProductId === "object") {
+      normalizedProductId =
+        normalizedProductId.id ||
+        normalizedProductId._id ||
+        normalizedProductId.productId ||
+        normalizedProductId.value ||
+        null;
+    }
+    if (typeof normalizedProductId !== "string") {
+      return null;
+    }
+
     const result = await client.execute({
       sql: "SELECT * FROM products WHERE id = ?",
-      args: [productId]
+      args: [normalizedProductId.trim()]
     });
     return result.rows.length > 0 ? result.rows[0] : null;
   } catch (error) {
