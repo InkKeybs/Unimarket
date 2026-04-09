@@ -16,17 +16,6 @@ function Profile() {
       preg: "",
     })
   );
-  const [myBids, setMyBids] = useState(
-    Array({
-      pname: "",
-      pimage: "",
-      bidPrice: "",
-      bidtime: "",
-      pprice: "",
-      pid: "",
-      bid: "",
-    })
-  );
   const [myPurchases, setMyPurchases] = useState(
     Array({
       id: "",
@@ -41,6 +30,21 @@ function Profile() {
   const [del, setDelete] = useState(false);
   const [id, setId] = useState("");
   const [role, setRole] = useState("user");
+  const [wallet, setWallet] = useState({
+    totalEarnings: 0,
+    lockedAmount: 0,
+    paidOutAmount: 0,
+    pendingPaymentAmount: 0,
+    pendingPaymentCount: 0,
+    availableBalance: 0,
+  });
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [sellerPaymentRequests, setSellerPaymentRequests] = useState([]);
+  const [withdrawalForm, setWithdrawalForm] = useState({
+    gcashNumber: "",
+    amount: "",
+    note: "",
+  });
   const [data, setData] = useState({
     name: "",
     mail: "",
@@ -70,6 +74,13 @@ function Profile() {
         };
     }
   };
+
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0));
 
   const getExpiryInfo = (expiresAt) => {
     if (!expiresAt) return null;
@@ -134,9 +145,26 @@ function Profile() {
             console.log(res);
             console.log(res.data);
             setData(res.data.data);
-            setMyBids(res.data.mybids);
             setMyProds(res.data.myproducts);
             setMyPurchases(res.data.mypurchases || []);
+            setWallet(
+              res.data.wallet || {
+                totalEarnings: 0,
+                lockedAmount: 0,
+                paidOutAmount: 0,
+                pendingPaymentAmount: 0,
+                pendingPaymentCount: 0,
+                availableBalance: 0,
+              }
+            );
+            setWithdrawals(res.data.withdrawals || []);
+            setSellerPaymentRequests(res.data.sellerPaymentRequests || []);
+            if (Array.isArray(res.data.withdrawals) && res.data.withdrawals.length > 0) {
+              setWithdrawalForm((prev) => ({
+                ...prev,
+                gcashNumber: res.data.withdrawals[0].gcashNumber || "",
+              }));
+            }
           })
           .catch((err) => console.log(err));
       })
@@ -191,6 +219,50 @@ function Profile() {
         console.log(error);
       });
   };
+
+  const handleWithdrawalInput = (event) => {
+    const { name, value } = event.target;
+    setWithdrawalForm((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleWithdrawalRequest = () => {
+    const amount = Number(withdrawalForm.amount);
+    if (!withdrawalForm.gcashNumber.trim()) {
+      toast.error("Enter your GCash number");
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      toast.error("Enter a valid withdrawal amount");
+      return;
+    }
+
+    toast.loading("Submitting withdrawal request...", { duration: 1800 });
+    axios({
+      method: "post",
+      baseURL: `${process.env.REACT_APP_BASEURL}`,
+      url: "/api/withdraw/request",
+      data: {
+        id,
+        gcashNumber: withdrawalForm.gcashNumber,
+        amount,
+        note: withdrawalForm.note,
+      },
+    })
+      .then((res) => {
+        toast.success("Withdrawal request submitted");
+        setWallet(res.data.wallet || wallet);
+        if (res.data.withdrawal) {
+          setWithdrawals((prev) => [res.data.withdrawal, ...prev]);
+        }
+        setWithdrawalForm((prev) => ({ ...prev, amount: "", note: "" }));
+      })
+      .catch((error) => {
+        const message = error?.response?.data?.message || "Failed to submit withdrawal request";
+        toast.error(message);
+      });
+  };
+
   return (
     <div id={styles.profilePage}>
       <div id={styles.profileContainer}>
@@ -281,6 +353,125 @@ function Profile() {
             Delete
           </button>
         </div>
+        <div className={styles.profitSection}>
+          <div className={styles.mybidtitle}>Profits & Withdrawals</div>
+          <div className={styles.walletStats}>
+            <div className={styles.walletCard}>
+              <p>Total earnings</p>
+              <strong>{formatCurrency(wallet.totalEarnings)}</strong>
+            </div>
+            <div className={styles.walletCard}>
+              <p>Locked in requests</p>
+              <strong>{formatCurrency(wallet.lockedAmount)}</strong>
+            </div>
+            <div className={styles.walletCard}>
+              <p>Pending payment approvals</p>
+              <strong>{formatCurrency(wallet.pendingPaymentAmount)}</strong>
+              <p>{Number(wallet.pendingPaymentCount || 0)} submission(s) waiting for admin review</p>
+            </div>
+            <div className={styles.walletCard}>
+              <p>Available balance</p>
+              <strong>{formatCurrency(wallet.availableBalance)}</strong>
+            </div>
+          </div>
+
+          <div className={styles.withdrawPanel}>
+            <div className={styles.profileAttribute}>
+              <label>GCash Number</label>
+              <input
+                type="text"
+                name="gcashNumber"
+                value={withdrawalForm.gcashNumber}
+                onChange={handleWithdrawalInput}
+                placeholder="09XXXXXXXXX or +639XXXXXXXXX"
+              />
+            </div>
+            <div className={styles.profileAttribute}>
+              <label>Amount to Withdraw</label>
+              <input
+                type="number"
+                name="amount"
+                value={withdrawalForm.amount}
+                onChange={handleWithdrawalInput}
+                min="1"
+                step="0.01"
+                placeholder="0.00"
+              />
+            </div>
+            <div className={styles.profileAttribute}>
+              <label>Note (optional)</label>
+              <input
+                type="text"
+                name="note"
+                value={withdrawalForm.note}
+                onChange={handleWithdrawalInput}
+                placeholder="Preferred payout time or notes"
+              />
+            </div>
+            <button
+              type="button"
+              className={styles.withdrawButton}
+              onClick={handleWithdrawalRequest}
+              disabled={Number(wallet.availableBalance || 0) <= 0}
+            >
+              Request Withdrawal
+            </button>
+          </div>
+
+          <div className={styles.withdrawHistory}>
+            <p className={styles.withdrawHistoryTitle}>Withdrawal Requests</p>
+            {withdrawals.length > 0 ? (
+              withdrawals.map((item) => (
+                <div key={item.id} className={styles.withdrawHistoryItem}>
+                  <div>
+                    <strong>{formatCurrency(item.amount)}</strong>
+                    <p>{item.gcashNumber}</p>
+                    {item.note ? <p>{item.note}</p> : null}
+                  </div>
+                  <div style={{ textAlign: "right" }}>
+                    <span className={`${styles.withdrawStatus} ${styles[`status${String(item.status || "pending").charAt(0).toUpperCase()}${String(item.status || "pending").slice(1).toLowerCase()}`]}`}>
+                      {item.status || "pending"}
+                    </span>
+                    <p>{item.createdAt ? String(item.createdAt).slice(0, 10) : ""}</p>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <p className={styles.withdrawEmpty}>No withdrawal requests yet.</p>
+            )}
+          </div>
+        </div>
+        <div className={styles.profitSection}>
+          <div className={styles.mybidtitle}>Buyer Payment Submissions</div>
+          {sellerPaymentRequests.length > 0 ? (
+            <div className={styles.paymentRequestList}>
+              {sellerPaymentRequests.map((payment) => {
+                return (
+                  <div key={payment.id} className={styles.paymentRequestCard}>
+                    <div className={styles.paymentRequestHead}>
+                      <strong>{payment.productName || "Product"}</strong>
+                      <span className={`${styles.withdrawStatus} ${styles[`status${String(payment.status || "pending").charAt(0).toUpperCase()}${String(payment.status || "pending").slice(1).toLowerCase()}`]}`}>
+                        {payment.status}
+                      </span>
+                    </div>
+                    <p>Buyer: {payment.buyerName} ({payment.buyerMail})</p>
+                    <p>Reference: {payment.referenceNumber}</p>
+                    <p>Amount: {formatCurrency(payment.amount)}</p>
+                    {payment.note ? <p>Note: {payment.note}</p> : null}
+                    {payment.receiptImage ? (
+                      <a href={payment.receiptImage} target="_blank" rel="noreferrer" className={styles.receiptLink}>
+                        View receipt image
+                      </a>
+                    ) : null}
+                    <p>Status is managed by admins from the Admin panel.</p>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className={styles.withdrawEmpty}>No buyer payment submissions yet.</p>
+          )}
+        </div>
         <div>
           <div className={styles.mybidtitle}>My Purchases</div>
           <div className={styles.mybidcontainer}>
@@ -293,52 +484,9 @@ function Profile() {
                       <p className={styles.mybidname}>✓ {ele.pname}</p>
                       <p>purchased on : {ele.preg.slice(0, 10)}</p>
                       <p>
-                        your bid : ₱ {ele.soldPrice} /- , original price : ₱{" "}
-                        {ele.pprice} /-
+                        purchase price : ₱ {ele.soldPrice} /- , listed price : ₱ {ele.pprice} /-
                       </p>
-                      <p style={{color: '#4caf50', fontWeight: 'bold'}}>Your bid was accepted! 🎉</p>
-                    </div>
-                  </div>
-                );
-              })
-            ) : (
-              <></>
-            )}
-          </div>
-        </div>
-        <div>
-          <div className={styles.mybidtitle}>My Bids</div>
-          <div className={styles.mybidcontainer}>
-            {myBids.length !== 0 ? (
-              myBids.map((ele) => {
-                return (
-                  <div key={ele.pname} className={styles.mybidele}>
-                    <img src={ele.pimage} alt="" />
-                    <div className={styles.mybidinform}>
-                      <p className={styles.mybidname}>{ele.pname}</p>
-                      <p>bidded on : {ele.bidtime.slice(0, 10)}</p>
-                      <p>
-                        bid price : ₱ {ele.bidPrice} /- , product price : ₱{" "}
-                        {ele.pprice} /-
-                      </p>
-                    </div>
-                    <div
-                      className={styles.mybidx}
-                      onClick={(e) => {
-                        toast.loading("Processing", { duration: 2000 });
-                        axios({
-                          method: "post",
-                          baseURL: `${process.env.REACT_APP_BASEURL}`,
-                          url: "/api/deletemybid",
-                          data: { pid: ele.pid, bid: ele.bid },
-                        })
-                          .then((res) => {
-                            toast.success("Bid deleted successfully!");
-                          })
-                          .catch((err) => console.log(err));
-                      }}
-                    >
-                      <img src={dust} alt="" />
+                      <p style={{color: '#4caf50', fontWeight: 'bold'}}>Purchase completed 🎉</p>
                     </div>
                   </div>
                 );

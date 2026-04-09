@@ -4,6 +4,14 @@ import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import { LoaderIcon, toast } from "react-hot-toast";
 import styles from "./GcashCheckout.module.scss";
 
+const fileToDataUrl = (file) =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result || ""));
+    reader.onerror = () => reject(new Error("Failed to read file"));
+    reader.readAsDataURL(file);
+  });
+
 function GcashCheckout() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -13,10 +21,10 @@ function GcashCheckout() {
 
   const [buyerName, setBuyerName] = useState("");
   const [referenceNumber, setReferenceNumber] = useState("");
-  const [proofDetails, setProofDetails] = useState("");
-  const [message, setMessage] = useState("");
-  const [qrImageFile, setQrImageFile] = useState(null);
-  const [qrImagePreview, setQrImagePreview] = useState("");
+  const [receiptNote, setReceiptNote] = useState("");
+  const [additionalNote, setAdditionalNote] = useState("");
+  const [receiptFile, setReceiptFile] = useState(null);
+  const [receiptPreview, setReceiptPreview] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const amount = useMemo(() => Number(product.pprice || 0), [product.pprice]);
@@ -27,20 +35,22 @@ function GcashCheckout() {
 
   const merchantName = process.env.REACT_APP_GCASH_ACCOUNT_NAME || "Your GCash account";
   const merchantNumber = process.env.REACT_APP_GCASH_NUMBER || "Replace with your GCash number";
+  const merchantQrCodeUrl =
+    process.env.REACT_APP_GCASH_QR_CODE_URL || "/gcash-qr.png";
 
   useEffect(() => {
-    if (!qrImageFile) {
-      setQrImagePreview("");
+    if (!receiptFile) {
+      setReceiptPreview("");
       return undefined;
     }
 
-    const previewUrl = URL.createObjectURL(qrImageFile);
-    setQrImagePreview(previewUrl);
+    const previewUrl = URL.createObjectURL(receiptFile);
+    setReceiptPreview(previewUrl);
 
     return () => {
       URL.revokeObjectURL(previewUrl);
     };
-  }, [qrImageFile]);
+  }, [receiptFile]);
 
   useEffect(() => {
     if (product?.pprice || product?.id) {
@@ -80,24 +90,24 @@ function GcashCheckout() {
       });
   }, [product, productId]);
 
-    const handleQrUpload = (event) => {
-      const file = event.target.files?.[0];
+  const handleReceiptUpload = (event) => {
+    const file = event.target.files?.[0];
 
-      if (!file) {
-        setQrImageFile(null);
-        return;
-      }
+    if (!file) {
+      setReceiptFile(null);
+      return;
+    }
 
-      if (!file.type.startsWith("image/")) {
-        toast.error("Please upload an image file for the GCash QR code");
-        event.target.value = "";
-        return;
-      }
+    if (!file.type.startsWith("image/")) {
+      toast.error("Upload a receipt image file");
+      event.target.value = "";
+      return;
+    }
 
-      setQrImageFile(file);
-    };
+    setReceiptFile(file);
+  };
 
-  const handleSubmit = (event) => {
+  const handleSubmit = async (event) => {
     event.preventDefault();
 
     if (!buyerName.trim()) {
@@ -110,12 +120,47 @@ function GcashCheckout() {
       return;
     }
 
-    setSubmitting(true);
-    window.setTimeout(() => {
+    if (!receiptFile) {
+      toast.error("Upload the payment receipt before submitting");
+      return;
+    }
+
+    const tokenStr = localStorage.getItem("token");
+    const token = tokenStr ? JSON.parse(tokenStr) : null;
+    if (!token) {
+      toast.error("Please log in before submitting payment");
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const receiptImage = await fileToDataUrl(receiptFile);
+      const mergedNote = [receiptNote.trim(), additionalNote.trim(), `Buyer: ${buyerName.trim()}`]
+        .filter(Boolean)
+        .join("\n");
+
+      await axios({
+        method: "post",
+        baseURL: `${process.env.REACT_APP_BASEURL}`,
+        url: "/api/payments/submit",
+        data: {
+          token,
+          productId: product.id || productId,
+          amount,
+          referenceNumber,
+          receiptImage,
+          note: mergedNote,
+        },
+      });
+
       setSubmitting(false);
-      toast.success("Payment request submitted for manual verification");
+      toast.success("Receipt submitted and queued for verification");
       navigate("/");
-    }, 900);
+    } catch (error) {
+      const message = error?.response?.data?.message || "Failed to submit payment";
+      toast.error(message);
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -124,16 +169,16 @@ function GcashCheckout() {
       <div className={styles.checkoutShell}>
         <header className={styles.heroCard}>
           <div className={styles.heroText}>
-            <p className={styles.kicker}>Manual GCash Checkout</p>
-            <h1>Pay by scanning your GCash QR and submit proof for review.</h1>
+            <p className={styles.kicker}>Third-party GCash payment</p>
+            <h1>Scan the merchant QR, upload your receipt, then submit for verification.</h1>
             <p className={styles.heroCopy}>
-              This flow is designed for small-volume orders: the buyer pays manually,
-              then you verify the transfer before marking the order as paid.
+              The buyer pays through the merchant QR code below. After payment, upload the
+              receipt so the order can be manually verified before fulfillment.
             </p>
             <div className={styles.heroPills}>
-              <span>Pending review</span>
-              <span>Manual confirmation</span>
-              <span>Buyer proof required</span>
+              <span>Scan QR code</span>
+              <span>Upload receipt</span>
+              <span>Manual verification</span>
             </div>
           </div>
 
@@ -141,8 +186,8 @@ function GcashCheckout() {
             <p className={styles.summaryLabel}>Order total</p>
             <div className={styles.summaryAmount}>{formattedAmount}</div>
             <div className={styles.summaryMeta}>
-              <span>Product ID</span>
-              <strong>{productId || product.id || "N/A"}</strong>
+              <span>Product</span>
+              <strong>{product.pname || "Selected item"}</strong>
             </div>
             <div className={styles.summaryMeta}>
               <span>Seller</span>
@@ -156,7 +201,7 @@ function GcashCheckout() {
             <div className={styles.panelHeader}>
               <div>
                 <p className={styles.panelLabel}>Step 1</p>
-                <h2>Pay using GCash</h2>
+                <h2>Pay to the merchant QR code</h2>
               </div>
               <span className={styles.statusBadge}>GCash</span>
             </div>
@@ -166,57 +211,37 @@ function GcashCheckout() {
                 <LoaderIcon />
               </div>
             ) : (
-              <div className={styles.uploadCard}>
-                <div className={styles.uploadHeader}>
-                  <div className={styles.uploadBadge}>QR</div>
-                  <div>
-                    <h3>Upload your GCash QR image</h3>
-                    <p>Select a local PNG or JPG file to preview it here before payment.</p>
-                  </div>
-                </div>
-
-                {qrImagePreview ? (
-                  <div className={styles.qrPreviewFrame}>
-                    <img src={qrImagePreview} alt="Uploaded GCash QR code preview" className={styles.qrPreviewImage} />
-                  </div>
+              <div className={styles.qrCard}>
+                {merchantQrCodeUrl ? (
+                  <img
+                    src={merchantQrCodeUrl}
+                    alt="Merchant GCash QR code"
+                    className={styles.qrCodeImage}
+                  />
                 ) : (
-                  <label className={styles.uploadDropzone}>
-                    <input type="file" accept="image/*" onChange={handleQrUpload} />
-                    <span className={styles.uploadIcon} aria-hidden="true">+</span>
-                    <strong>Choose QR image</strong>
-                    <p>PNG, JPG, or WEBP image only.</p>
-                  </label>
+                  <div className={styles.qrPlaceholder}>
+                    <strong>Merchant QR code</strong>
+                    <p>Set REACT_APP_GCASH_QR_CODE_URL to your third-party QR image.</p>
+                  </div>
                 )}
 
-                {qrImagePreview ? (
-                  <div className={styles.uploadActions}>
-                    <button
-                      type="button"
-                      className={styles.secondaryButton}
-                      onClick={() => setQrImageFile(null)}
-                    >
-                      Replace image
-                    </button>
+                <div className={styles.merchantBox}>
+                  <div>
+                    <span>GCash account name</span>
+                    <strong>{merchantName}</strong>
                   </div>
-                ) : null}
+                  <div>
+                    <span>GCash number</span>
+                    <strong>{merchantNumber}</strong>
+                  </div>
+                </div>
               </div>
             )}
 
-            <div className={styles.merchantBox}>
-              <div>
-                <span>GCash account name</span>
-                <strong>{merchantName}</strong>
-              </div>
-              <div>
-                <span>GCash number</span>
-                <strong>{merchantNumber}</strong>
-              </div>
-            </div>
-
             <ul className={styles.stepList}>
-              <li>Pay the exact amount shown.</li>
-              <li>Save the transaction reference number.</li>
-              <li>Submit proof so the order can be verified.</li>
+              <li>Open GCash and scan the merchant QR code.</li>
+              <li>Send the exact amount shown on this page.</li>
+              <li>Save the receipt and transaction reference number.</li>
             </ul>
           </section>
 
@@ -224,7 +249,7 @@ function GcashCheckout() {
             <div className={styles.panelHeader}>
               <div>
                 <p className={styles.panelLabel}>Step 2</p>
-                <h2>Submit payment details</h2>
+                <h2>Upload receipt and submit</h2>
               </div>
             </div>
 
@@ -250,12 +275,38 @@ function GcashCheckout() {
               </label>
 
               <label className={styles.fieldGroup}>
-                <span>Proof details</span>
+                <span>Receipt upload</span>
+                <input type="file" accept="image/*" onChange={handleReceiptUpload} />
+              </label>
+
+              {receiptPreview ? (
+                <div className={styles.receiptPreviewFrame}>
+                  <img
+                    src={receiptPreview}
+                    alt="Uploaded GCash receipt preview"
+                    className={styles.receiptPreviewImage}
+                  />
+                  <button
+                    type="button"
+                    className={styles.secondaryButton}
+                    onClick={() => setReceiptFile(null)}
+                  >
+                    Replace receipt
+                  </button>
+                </div>
+              ) : (
+                <div className={styles.receiptDropzoneHint}>
+                  Upload a screenshot or photo of your payment receipt.
+                </div>
+              )}
+
+              <label className={styles.fieldGroup}>
+                <span>Receipt note</span>
                 <textarea
                   rows="4"
-                  value={proofDetails}
-                  onChange={(event) => setProofDetails(event.target.value)}
-                  placeholder="Paste screenshot filename, note, or any extra confirmation details"
+                  value={receiptNote}
+                  onChange={(event) => setReceiptNote(event.target.value)}
+                  placeholder="Add the transaction date, amount sent, or any receipt details"
                 />
               </label>
 
@@ -263,14 +314,14 @@ function GcashCheckout() {
                 <span>Optional note</span>
                 <textarea
                   rows="3"
-                  value={message}
-                  onChange={(event) => setMessage(event.target.value)}
+                  value={additionalNote}
+                  onChange={(event) => setAdditionalNote(event.target.value)}
                   placeholder="Add delivery instructions, pickup time, or a short message"
                 />
               </label>
 
               <div className={styles.noticeBox}>
-                Orders stay in pending status until you verify the payment manually.
+                Your receipt will be reviewed manually before the order is marked as paid.
               </div>
 
               <button type="submit" className={styles.submitButton} disabled={submitting}>

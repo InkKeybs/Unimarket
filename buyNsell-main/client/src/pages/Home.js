@@ -19,18 +19,6 @@ function Home() {
   const [loading, setLoading] = useState(true);
   const [searchval, setsearchval] = useState("");
   const [allProd, setAllProd] = useState([]);
-  const [notificationData, setNotificationData] = useState(
-    Array({
-      prodId: "",
-      href: "",
-      imageURL: "",
-      reg: 0,
-      pname: "",
-      bprice: 0,
-      cancel: false,
-      bid: "",
-    })
-  );
   const [disProd, setDisProd] = useState([]);
   const [valid, setValid] = useState(false);
   const [role, setRole] = useState("user");
@@ -52,8 +40,6 @@ function Home() {
             console.log("Token validation successful");
             setValid(true);
             setRole(response.data.role || "user");
-            setNotificationData(response.data.allNotifications);
-            console.log(response.data.allNotifications);
           })
           .catch(function (error) {
             console.log("Token validation error:", error);
@@ -85,7 +71,6 @@ function Home() {
       });
   }, []);
 
-  const [notification, setNotification] = useState(false);
   const images = [table, chair, cycle, setsquare, coat, others, all];
   const [category, setCategory] = useState("all");
   const catId = ["Gadgets", "Books", "Clothes", "Supplies", "Food", "Others", "All"];
@@ -127,13 +112,6 @@ function Home() {
           <div id={styles.navLinks}>
             <div>
               <Link to="/shops" className={styles.shopsPill}>Shops</Link>
-            </div>
-            <div
-              onClick={() => {
-                setNotification(!notification);
-              }}
-            >
-              Notification
             </div>
             <div>
               <Link to="/chats">Chats</Link>
@@ -231,97 +209,6 @@ function Home() {
           </div>
         )}
       </div>
-      {notification && valid && (
-        <>
-          <div className={styles.bgNotification} onClick={() => setNotification(false)}></div>
-          <div className={styles.notificationContainer}>
-            <div className={styles.notificationHeader}>
-              <h3>Bid Notifications</h3>
-              <button 
-                onClick={() => setNotification(false)}
-                className={styles.closeNotificationBtn}
-              >
-                ×
-              </button>
-            </div>
-            {notificationData.length > 0 ? (
-              <div className={styles.notificationList}>
-                {notificationData.map((element, index) => {
-                  return (
-                    <div key={index} className={styles.notification}>
-                  <div className={styles.notificationText}>
-                    <p>
-                      Someone bid on your product{" "}
-                      <span style={{ fontWeight: "bold" }}>
-                        {element.pname}
-                      </span>{" "}
-                      for ₱{element.bprice}
-                    </p>
-                  </div>
-                  <div className={styles.notificationButtons}>
-                    <button
-                      onClick={() => {
-                        axios({
-                          method: "post",
-                          baseURL: `${process.env.REACT_APP_BASEURL}`,
-                          url: "/api/acceptbid",
-                          data: {
-                            prodId: element.prodId,
-                            buyer: element.bid,
-                            bprice: element.bprice,
-                          },
-                        })
-                          .then(function (response) {
-                            toast.success("Bid accepted! Product marked as sold.");
-                            setNotification(false);
-                            // Refresh the page to remove sold product from listings
-                            window.location.reload();
-                          })
-                          .catch(function (error) {
-                            toast.error("Error accepting bid");
-                            console.log(error);
-                          });
-                      }}
-                    >
-                      Accept
-                    </button>
-                    <button
-                      onClick={() => {
-                        axios({
-                          method: "post",
-                          baseURL: `${process.env.REACT_APP_BASEURL}`,
-                          url: "/api/rejectbid",
-                          data: {
-                            prodId: element.prodId,
-                            buyer: element.bid,
-                          },
-                        })
-                          .then(function (response) {
-                            toast.success("Bid rejected!");
-                            setNotification(false);
-                            window.location.reload();
-                          })
-                          .catch(function (error) {
-                            toast.error("Error rejecting bid");
-                            console.log(error);
-                          });
-                      }}
-                    >
-                      Reject
-                    </button>
-                  </div>
-                </div>
-              );
-                })}
-              </div>
-            ) : (
-              <div className={styles.emptyNotification}>
-                <p className={styles.emptyNotificationText}>No notifications</p>
-              </div>
-            )}
-          </div>
-        </>
-      )}
     </>
   );
 }

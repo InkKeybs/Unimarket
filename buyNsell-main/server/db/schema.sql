@@ -137,3 +137,45 @@ CREATE TABLE IF NOT EXISTS user_tokens (
 
 CREATE INDEX IF NOT EXISTS idx_user_tokens_user_id ON user_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_user_tokens_token ON user_tokens(token);
+
+CREATE TABLE IF NOT EXISTS seller_withdrawals (
+  id TEXT PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  gcash_number TEXT NOT NULL,
+  amount REAL NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending',
+  note TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_seller_withdrawals_user_id ON seller_withdrawals(user_id);
+CREATE INDEX IF NOT EXISTS idx_seller_withdrawals_status ON seller_withdrawals(status);
+
+CREATE TABLE IF NOT EXISTS payment_submissions (
+  id TEXT PRIMARY KEY,
+  product_id TEXT NOT NULL,
+  buyer_id TEXT NOT NULL,
+  seller_id TEXT NOT NULL,
+  amount REAL NOT NULL,
+  platform_fee REAL,
+  seller_net REAL,
+  reference_number TEXT NOT NULL,
+  receipt_image TEXT NOT NULL,
+  note TEXT,
+  status TEXT NOT NULL DEFAULT 'pending',
+  review_note TEXT,
+  reviewed_by TEXT,
+  created_at TEXT,
+  updated_at TEXT,
+  FOREIGN KEY (product_id) REFERENCES products(id),
+  FOREIGN KEY (buyer_id) REFERENCES users(id),
+  FOREIGN KEY (seller_id) REFERENCES users(id),
+  FOREIGN KEY (reviewed_by) REFERENCES users(id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_payment_submissions_product_id ON payment_submissions(product_id);
+CREATE INDEX IF NOT EXISTS idx_payment_submissions_seller_id ON payment_submissions(seller_id);
+CREATE INDEX IF NOT EXISTS idx_payment_submissions_buyer_id ON payment_submissions(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_payment_submissions_status ON payment_submissions(status);

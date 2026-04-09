@@ -170,6 +170,165 @@
   gap: 20px;
 }
 
+.profitSection {
+  margin-top: 10px;
+}
+
+.walletStats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 12px;
+}
+
+.walletCard {
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: #f8fbff;
+  padding: 12px 14px;
+
+  p {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-muted);
+  }
+
+  strong {
+    display: block;
+    margin-top: 8px;
+    font-size: 1.2rem;
+    color: var(--primary);
+  }
+}
+
+.withdrawPanel {
+  margin-top: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 14px;
+  background: #fcfdff;
+}
+
+.withdrawButton {
+  width: 100%;
+  margin-top: 4px;
+  height: 44px;
+  border: none;
+  border-radius: 10px;
+  background: var(--success);
+  color: #fff;
+  font-size: 0.96rem;
+  font-weight: 700;
+  cursor: pointer;
+
+  &:hover {
+    background: var(--success-hover);
+  }
+
+  &:disabled {
+    background: var(--gray);
+    cursor: not-allowed;
+  }
+}
+
+.withdrawHistory {
+  margin-top: 16px;
+}
+
+.withdrawHistoryTitle {
+  margin: 0 0 8px;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-strong);
+}
+
+.withdrawHistoryItem {
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fff;
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+
+  p {
+    margin: 3px 0 0;
+    color: var(--text-muted);
+    font-size: 0.85rem;
+  }
+}
+
+.withdrawStatus {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 2px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.statusPending {
+  background: #fff7ed;
+  color: #c2410c;
+}
+
+.statusApproved {
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.statusRejected {
+  background: #fef2f2;
+  color: #b91c1c;
+}
+
+.statusPaid {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.withdrawEmpty {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.paymentRequestList {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.paymentRequestCard {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  padding: 12px;
+
+  p {
+    margin: 6px 0 0;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+  }
+}
+
+.paymentRequestHead {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: center;
+}
+
+.receiptLink {
+  display: inline-block;
+  margin-top: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--primary);
+  text-decoration: none;
+}
+
 .mybidname {
   font-size: 1.2rem;
   font-weight: 600;
@@ -347,6 +506,9 @@
   .mybidcontainer {
     grid-template-columns: 1fr;
     gap: 15px;
+  }
+  .walletStats {
+    grid-template-columns: 1fr;
   }
   #logout {
     width: 90vw;

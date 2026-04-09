@@ -1,10 +1,11 @@
 import styles from "./Sell.module.scss";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { toast } from "react-hot-toast";
 import axios from "axios";
 
 const MAX_IMAGE_SIZE_BYTES = 14 * 1024 * 1024;
+const PLATFORM_FEE_RATE = 0.05;
 
 function Sell() {
   const navigate = useNavigate();
@@ -28,6 +29,23 @@ function Sell() {
     pimage: "",
     id: "",
   });
+
+  const priceValue = useMemo(() => Number(data.pprice || 0), [data.pprice]);
+  const feeAmount = useMemo(
+    () => (priceValue > 0 ? Number((priceValue * PLATFORM_FEE_RATE).toFixed(2)) : 0),
+    [priceValue]
+  );
+  const sellerNet = useMemo(
+    () => (priceValue > 0 ? Number((priceValue - feeAmount).toFixed(2)) : 0),
+    [priceValue, feeAmount]
+  );
+
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0));
   useEffect(() => {
     const token = JSON.parse(localStorage.getItem("token"));
     if (token === "") {
@@ -154,6 +172,10 @@ function Sell() {
             value={data.pprice}
             onChange={handleChange}
           ></input>
+        </div>
+        <div className={styles.feeHint}>
+          <p>Platform fee (5%): <strong>{formatCurrency(feeAmount)}</strong></p>
+          <p>You will receive (estimated): <strong>{formatCurrency(sellerNet)}</strong></p>
         </div>
         <div className={styles.sellinput}>
           <span>Product info : </span>

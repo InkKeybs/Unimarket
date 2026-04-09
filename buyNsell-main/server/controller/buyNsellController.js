@@ -48,6 +48,30 @@ const PRODUCT_APPROVAL_STATUS = {
   APPROVED: "approved",
   REJECTED: "rejected",
 };
+const PLATFORM_FEE_RATE = (() => {
+  const configuredRate = Number(process.env.PLATFORM_FEE_RATE);
+  if (Number.isFinite(configuredRate) && configuredRate >= 0 && configuredRate <= 1) {
+    return configuredRate;
+  }
+  return 0.05;
+})();
+const PAYMENT_SUBMISSION_STATUS = {
+  PENDING: "pending",
+  APPROVED: "approved",
+  REJECTED: "rejected",
+};
+
+const calculateFeeBreakdown = (amount) => {
+  const gross = Number(amount || 0);
+  const platformFee = Number((gross * PLATFORM_FEE_RATE).toFixed(2));
+  const sellerNet = Number(Math.max(0, gross - platformFee).toFixed(2));
+
+  return {
+    gross,
+    platformFee,
+    sellerNet,
+  };
+};
 
 const getDataUrlByteSize = (dataUrl) => {
   if (typeof dataUrl !== "string") {
@@ -74,6 +98,92 @@ const verifyOtpCode = (code, hash) => {
 };
 
 const normalizeEmail = (email) => String(email || "").trim().toLowerCase();
+
+const normalizeGcashNumber = (value) =>
+  String(value || "")
+    .trim()
+    .replace(/[\s-]/g, "");
+
+const isValidGcashNumber = (value) => /^(\+63|0)?9\d{9}$/.test(value);
+
+const getSellerWalletSnapshot = async (client, userId) => {
+  const paymentSalesResult = await client.execute({
+    sql: `SELECT COALESCE(SUM(COALESCE(seller_net, amount * ?)), 0) AS total_earnings
+          FROM payment_submissions
+          WHERE seller_id = ? AND status = 'approved'`,
+    args: [1 - PLATFORM_FEE_RATE, userId],
+  });
+
+  const legacySalesResult = await client.execute({
+    sql: `SELECT COALESCE(SUM((CASE
+              WHEN p.sold_price IS NOT NULL AND p.sold_price > 0 THEN p.sold_price
+              ELSE p.pprice
+            END) * ?), 0) AS legacy_earnings
+          FROM products p
+          WHERE p.seller_id = ?
+            AND p.sold = 1
+            AND NOT EXISTS (
+              SELECT 1
+              FROM payment_submissions ps
+              WHERE ps.product_id = p.id AND ps.status = 'approved'
+            )`,
+    args: [1 - PLATFORM_FEE_RATE, userId],
+  });
+
+  const withdrawalsResult = await client.execute({
+    sql: `SELECT
+            COALESCE(SUM(CASE WHEN status IN ('pending', 'approved') THEN amount ELSE 0 END), 0) AS locked_amount,
+            COALESCE(SUM(CASE WHEN status = 'paid' THEN amount ELSE 0 END), 0) AS paid_out_amount
+          FROM seller_withdrawals
+          WHERE user_id = ?`,
+    args: [userId],
+  });
+
+  const pendingPaymentsResult = await client.execute({
+    sql: `SELECT
+            COALESCE(SUM(amount), 0) AS pending_amount,
+            COUNT(*) AS pending_count
+          FROM payment_submissions
+          WHERE seller_id = ? AND status = 'pending'`,
+    args: [userId],
+  });
+
+  const paymentEarnings = Number(paymentSalesResult.rows?.[0]?.total_earnings || 0);
+  const legacyEarnings = Number(legacySalesResult.rows?.[0]?.legacy_earnings || 0);
+  const totalEarnings = paymentEarnings + legacyEarnings;
+  const lockedAmount = Number(withdrawalsResult.rows?.[0]?.locked_amount || 0);
+  const paidOutAmount = Number(withdrawalsResult.rows?.[0]?.paid_out_amount || 0);
+  const pendingPaymentAmount = Number(pendingPaymentsResult.rows?.[0]?.pending_amount || 0);
+  const pendingPaymentCount = Number(pendingPaymentsResult.rows?.[0]?.pending_count || 0);
+  const availableBalance = Math.max(0, totalEarnings - lockedAmount - paidOutAmount);
+
+  return {
+    totalEarnings,
+    lockedAmount,
+    paidOutAmount,
+    pendingPaymentAmount,
+    pendingPaymentCount,
+    availableBalance,
+  };
+};
+
+const mapPaymentSubmissionRow = (row) => ({
+  id: row.id,
+  productId: row.product_id,
+  buyerId: row.buyer_id,
+  sellerId: row.seller_id,
+  amount: Number(row.amount || 0),
+  platformFee: Number(row.platform_fee || 0),
+  sellerNet: Number(row.seller_net || 0),
+  referenceNumber: row.reference_number,
+  receiptImage: row.receipt_image,
+  note: row.note || "",
+  status: row.status || PAYMENT_SUBMISSION_STATUS.PENDING,
+  reviewNote: row.review_note || "",
+  reviewedBy: row.reviewed_by || null,
+  createdAt: row.created_at,
+  updatedAt: row.updated_at,
+});
 
 // Helper: Convert UTC string to SQLite format
 // (Already imported from sqlHelpers)
@@ -906,26 +1016,6 @@ const profile = async (req, res) => {
     const { id } = req.body;
     const user = await getUserById(id);
 
-    // Get user's bids
-    const bidsResult = await client.execute({
-      sql: `SELECT be.*, b.id as bid_id, p.pname, p.pimage, p.pprice
-            FROM bid_entries be
-            JOIN bids b ON be.bid_id = b.id
-            JOIN products p ON b.product_id = p.id
-            WHERE be.buyer_id = ?`,
-      args: [id]
-    });
-    
-    const arr = (bidsResult.rows || []).map(row => ({
-      pname: row.pname,
-      pimage: row.pimage,
-      bidPrice: row.bid_price,
-      bidtime: row.bid_time,
-      bid: id,
-      pid: row.product_id,
-      pprice: row.pprice,
-    }));
-
     // Get user's products
     const productsResult = await client.execute({
       sql: `SELECT * FROM products WHERE seller_id = ?`,
@@ -957,27 +1047,334 @@ const profile = async (req, res) => {
       preg: prod.preg || 0,
     }));
 
+    const wallet = await getSellerWalletSnapshot(client, id);
+    const withdrawalsResult = await client.execute({
+      sql: `SELECT id, gcash_number, amount, status, note, created_at, updated_at
+            FROM seller_withdrawals
+            WHERE user_id = ?
+            ORDER BY created_at DESC`,
+      args: [id],
+    });
+
+    const withdrawals = (withdrawalsResult.rows || []).map((row) => ({
+      id: row.id,
+      gcashNumber: row.gcash_number,
+      amount: Number(row.amount || 0),
+      status: row.status || "pending",
+      note: row.note || "",
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+
+    const sellerPaymentResult = await client.execute({
+      sql: `SELECT ps.*, p.pname AS product_name, u.name AS buyer_name, u.mail AS buyer_mail
+            FROM payment_submissions ps
+            JOIN products p ON p.id = ps.product_id
+            JOIN users u ON u.id = ps.buyer_id
+            WHERE ps.seller_id = ?
+            ORDER BY ps.created_at DESC`,
+      args: [id],
+    });
+
+    const sellerPaymentRequests = (sellerPaymentResult.rows || []).map((row) => ({
+      ...mapPaymentSubmissionRow(row),
+      productName: row.product_name,
+      buyerName: row.buyer_name,
+      buyerMail: row.buyer_mail,
+    }));
+
     if (!user) {
       return res.status(400).send({
         error: true,
         message: "User not found",
         data: user,
-        mybids: arr,
         myproducts: myprodData,
         mypurchases: myPurchases,
+        wallet,
+        withdrawals,
+        sellerPaymentRequests,
       });
     }
 
     res.status(200).send({
       erro: false,
       data: user,
-      mybids: arr,
       myproducts: myprodData,
-      mypurchases: myPurchases
+      mypurchases: myPurchases,
+      wallet,
+      withdrawals,
+      sellerPaymentRequests,
     });
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true });
+  }
+};
+
+const submitPayment = async (req, res) => {
+  const client = getTursoClient();
+  try {
+    const { token, productId, amount, referenceNumber, receiptImage, note } = req.body || {};
+    const buyer = await getUserFromRefreshToken(token);
+
+    if (!buyer) {
+      return res.status(401).send({ error: true, message: "Unauthorized" });
+    }
+
+    const normalizedProductId = normalizeProductId(productId);
+    if (!normalizedProductId) {
+      return res.status(400).send({ error: true, message: "Invalid product id" });
+    }
+
+    const product = await getProductById(normalizedProductId);
+    if (!product) {
+      return res.status(404).send({ error: true, message: "Product not found" });
+    }
+
+    if (fromBoolInt(product.sold)) {
+      return res.status(400).send({ error: true, message: "Product is already sold" });
+    }
+
+    const sellerId = product.seller_id;
+    if (!sellerId) {
+      return res.status(400).send({ error: true, message: "Seller not found for this product" });
+    }
+
+    if (String(sellerId) === String(buyer.id)) {
+      return res.status(400).send({ error: true, message: "You cannot submit payment for your own listing" });
+    }
+
+    const numericAmount = Number(amount);
+    if (!Number.isFinite(numericAmount) || numericAmount <= 0) {
+      return res.status(400).send({ error: true, message: "Invalid payment amount" });
+    }
+
+    const cleanedReference = String(referenceNumber || "").trim();
+    if (!cleanedReference) {
+      return res.status(400).send({ error: true, message: "Reference number is required" });
+    }
+
+    const cleanedReceipt = String(receiptImage || "").trim();
+    if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(cleanedReceipt)) {
+      return res.status(400).send({ error: true, message: "Valid receipt image is required" });
+    }
+
+    const receiptSize = getDataUrlByteSize(cleanedReceipt);
+    if (receiptSize > MAX_PRODUCT_IMAGE_BYTES) {
+      return res.status(413).send({ error: true, message: "Receipt image must be 14MB or less" });
+    }
+
+    const existingPending = await client.execute({
+      sql: `SELECT id FROM payment_submissions
+            WHERE product_id = ? AND buyer_id = ? AND status = 'pending'
+            LIMIT 1`,
+      args: [normalizedProductId, buyer.id],
+    });
+
+    if ((existingPending.rows || []).length > 0) {
+      return res.status(400).send({ error: true, message: "You already have a pending payment submission for this product" });
+    }
+
+    const now = toSqliteDatetime(new Date());
+    const paymentId = crypto.randomUUID();
+    await client.execute({
+      sql: `INSERT INTO payment_submissions
+            (id, product_id, buyer_id, seller_id, amount, reference_number, receipt_image, note, status, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)`,
+      args: [
+        paymentId,
+        normalizedProductId,
+        buyer.id,
+        sellerId,
+        numericAmount,
+        cleanedReference,
+        cleanedReceipt,
+        String(note || "").trim(),
+        now,
+        now,
+      ],
+    });
+
+    return res.status(200).send({
+      error: false,
+      message: "Payment submitted for verification",
+      payment: {
+        id: paymentId,
+        status: PAYMENT_SUBMISSION_STATUS.PENDING,
+        createdAt: now,
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(400).send({ error: true, message: "Failed to submit payment" });
+  }
+};
+
+const reviewPaymentSubmission = async (req, res) => {
+  const client = getTursoClient();
+  try {
+    const { token, paymentId, status, reviewNote } = req.body || {};
+    const reviewer = await getUserFromRefreshToken(token);
+
+    if (!reviewer) {
+      return res.status(401).send({ error: true, message: "Unauthorized" });
+    }
+
+    const normalizedStatus = String(status || "").trim().toLowerCase();
+    if (![PAYMENT_SUBMISSION_STATUS.APPROVED, PAYMENT_SUBMISSION_STATUS.REJECTED].includes(normalizedStatus)) {
+      return res.status(400).send({ error: true, message: "Invalid review status" });
+    }
+
+    if (!paymentId || typeof paymentId !== "string") {
+      return res.status(400).send({ error: true, message: "paymentId is required" });
+    }
+
+    const paymentResult = await client.execute({
+      sql: `SELECT * FROM payment_submissions WHERE id = ?`,
+      args: [paymentId],
+    });
+
+    const payment = paymentResult.rows?.[0];
+    if (!payment) {
+      return res.status(404).send({ error: true, message: "Payment submission not found" });
+    }
+
+    const isAdmin = reviewer.role === "admin";
+    if (!isAdmin) {
+      return res.status(403).send({ error: true, message: "Only admins can review payment submissions" });
+    }
+
+    if (payment.status !== PAYMENT_SUBMISSION_STATUS.PENDING) {
+      return res.status(400).send({ error: true, message: "Only pending submissions can be reviewed" });
+    }
+
+    const product = await getProductById(payment.product_id);
+    if (!product) {
+      return res.status(404).send({ error: true, message: "Product not found" });
+    }
+
+    if (normalizedStatus === PAYMENT_SUBMISSION_STATUS.APPROVED && fromBoolInt(product.sold)) {
+      return res.status(400).send({ error: true, message: "Product is already sold" });
+    }
+
+    const now = toSqliteDatetime(new Date());
+    const finalReviewNote = String(reviewNote || "").trim();
+
+    let platformFee = null;
+    let sellerNet = null;
+
+    if (normalizedStatus === PAYMENT_SUBMISSION_STATUS.APPROVED) {
+      const breakdown = calculateFeeBreakdown(payment.amount);
+      platformFee = breakdown.platformFee;
+      sellerNet = breakdown.sellerNet;
+
+      await client.execute({
+        sql: `UPDATE products
+              SET sold = 1, sold_to = ?, sold_price = ?, updated_at = ?
+              WHERE id = ?`,
+        args: [payment.buyer_id, payment.amount, now, payment.product_id],
+      });
+
+      await client.execute({
+        sql: `UPDATE payment_submissions
+              SET status = 'rejected', review_note = ?, reviewed_by = ?, updated_at = ?
+              WHERE product_id = ? AND id <> ? AND status = 'pending'`,
+        args: ["Another payment submission has been approved for this product.", reviewer.id, now, payment.product_id, paymentId],
+      });
+    }
+
+    await client.execute({
+      sql: `UPDATE payment_submissions
+            SET status = ?, review_note = ?, reviewed_by = ?, platform_fee = ?, seller_net = ?, updated_at = ?
+            WHERE id = ?`,
+      args: [normalizedStatus, finalReviewNote, reviewer.id, platformFee, sellerNet, now, paymentId],
+    });
+
+    return res.status(200).send({
+      error: false,
+      message:
+        normalizedStatus === PAYMENT_SUBMISSION_STATUS.APPROVED
+          ? "Payment approved and product marked as sold"
+          : "Payment rejected",
+      details: {
+        id: paymentId,
+        status: normalizedStatus,
+        platformFee: platformFee || 0,
+        sellerNet: sellerNet || 0,
+        updatedAt: now,
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(400).send({ error: true, message: "Failed to review payment submission" });
+  }
+};
+
+const requestWithdrawal = async (req, res) => {
+  const client = getTursoClient();
+  try {
+    const { id, gcashNumber, amount, note } = req.body;
+
+    if (!id) {
+      return res.status(400).send({ error: true, message: "User id is required" });
+    }
+
+    const user = await getUserById(id);
+    if (!user) {
+      return res.status(404).send({ error: true, message: "User not found" });
+    }
+
+    const normalizedNumber = normalizeGcashNumber(gcashNumber);
+    if (!isValidGcashNumber(normalizedNumber)) {
+      return res.status(400).send({ error: true, message: "Invalid GCash number" });
+    }
+
+    const withdrawalAmount = Number(amount);
+    if (!Number.isFinite(withdrawalAmount) || withdrawalAmount <= 0) {
+      return res.status(400).send({ error: true, message: "Withdrawal amount must be greater than zero" });
+    }
+
+    const walletBefore = await getSellerWalletSnapshot(client, id);
+    if (walletBefore.availableBalance <= 0) {
+      return res.status(400).send({ error: true, message: "No available balance to withdraw" });
+    }
+
+    if (withdrawalAmount > walletBefore.availableBalance) {
+      return res.status(400).send({
+        error: true,
+        message: `Withdrawal exceeds available balance of ${walletBefore.availableBalance.toFixed(2)}`,
+      });
+    }
+
+    const now = toSqliteDatetime(new Date());
+    const withdrawalId = crypto.randomUUID();
+    await client.execute({
+      sql: `INSERT INTO seller_withdrawals
+            (id, user_id, gcash_number, amount, status, note, created_at, updated_at)
+            VALUES (?, ?, ?, ?, 'pending', ?, ?, ?)`,
+      args: [withdrawalId, id, normalizedNumber, withdrawalAmount, String(note || "").trim(), now, now],
+    });
+
+    const wallet = await getSellerWalletSnapshot(client, id);
+    const created = {
+      id: withdrawalId,
+      gcashNumber: normalizedNumber,
+      amount: withdrawalAmount,
+      status: "pending",
+      note: String(note || "").trim(),
+      createdAt: now,
+      updatedAt: now,
+    };
+
+    return res.status(200).send({
+      error: false,
+      message: "Withdrawal request submitted",
+      withdrawal: created,
+      wallet,
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(400).send({ error: true, message: "Failed to submit withdrawal request" });
   }
 };
 
@@ -1326,6 +1723,162 @@ const getAdminAllProducts = async (req, res) => {
   } catch (error) {
     console.log(error);
     res.status(400).send({ error: true, message: "Failed to fetch products" });
+  }
+};
+
+const getAdminWithdrawals = async (req, res) => {
+  try {
+    const adminUser = await requireAdminUser(req, res);
+    if (!adminUser) return;
+
+    const client = getTursoClient();
+    const { statusFilter, search } = req.body || {};
+    const where = [];
+    const args = [];
+
+    if (statusFilter && ["pending", "approved", "rejected", "paid"].includes(statusFilter)) {
+      where.push("sw.status = ?");
+      args.push(statusFilter);
+    }
+
+    if (search && String(search).trim()) {
+      const pattern = `%${String(search).trim()}%`;
+      where.push("(u.name LIKE ? OR u.mail LIKE ? OR sw.gcash_number LIKE ?)");
+      args.push(pattern, pattern, pattern);
+    }
+
+    const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+    const result = await client.execute({
+      sql: `SELECT sw.*, u.name AS user_name, u.mail AS user_mail
+            FROM seller_withdrawals sw
+            JOIN users u ON u.id = sw.user_id
+            ${whereClause}
+            ORDER BY sw.created_at DESC`,
+      args,
+    });
+
+    const details = (result.rows || []).map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      userName: row.user_name,
+      userMail: row.user_mail,
+      gcashNumber: row.gcash_number,
+      amount: Number(row.amount || 0),
+      status: row.status || "pending",
+      note: row.note || "",
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    }));
+
+    res.status(200).send({ error: false, details });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ error: true, message: "Failed to fetch withdrawal requests" });
+  }
+};
+
+const getAdminPaymentSubmissions = async (req, res) => {
+  try {
+    const adminUser = await requireAdminUser(req, res);
+    if (!adminUser) return;
+
+    const client = getTursoClient();
+    const { statusFilter, search } = req.body || {};
+    const where = [];
+    const args = [];
+
+    if (statusFilter && ["pending", "approved", "rejected"].includes(statusFilter)) {
+      where.push("ps.status = ?");
+      args.push(statusFilter);
+    }
+
+    if (search && String(search).trim()) {
+      const pattern = `%${String(search).trim()}%`;
+      where.push("(pb.name LIKE ? OR pb.mail LIKE ? OR ps.reference_number LIKE ? OR p.pname LIKE ?)");
+      args.push(pattern, pattern, pattern, pattern);
+    }
+
+    const whereClause = where.length > 0 ? `WHERE ${where.join(" AND ")}` : "";
+    const result = await client.execute({
+      sql: `SELECT ps.*, p.pname AS product_name, p.pimage AS product_image,
+                   pb.name AS buyer_name, pb.mail AS buyer_mail,
+                   psu.name AS seller_name, psu.mail AS seller_mail
+            FROM payment_submissions ps
+            JOIN products p ON p.id = ps.product_id
+            JOIN users pb ON pb.id = ps.buyer_id
+            JOIN users psu ON psu.id = ps.seller_id
+            ${whereClause}
+            ORDER BY ps.created_at DESC`,
+      args,
+    });
+
+    const details = (result.rows || []).map((row) => ({
+      ...mapPaymentSubmissionRow(row),
+      productName: row.product_name,
+      productImage: row.product_image,
+      buyerName: row.buyer_name,
+      buyerMail: row.buyer_mail,
+      sellerName: row.seller_name,
+      sellerMail: row.seller_mail,
+    }));
+
+    res.status(200).send({ error: false, details });
+  } catch (error) {
+    console.log(error);
+    res.status(400).send({ error: true, message: "Failed to fetch payment submissions" });
+  }
+};
+
+const updateAdminWithdrawalStatus = async (req, res) => {
+  try {
+    const adminUser = await requireAdminUser(req, res);
+    if (!adminUser) return;
+
+    const client = getTursoClient();
+    const { withdrawalId, status, note } = req.body || {};
+
+    if (!withdrawalId || typeof withdrawalId !== "string") {
+      return res.status(400).send({ error: true, message: "withdrawalId is required" });
+    }
+
+    const normalizedStatus = String(status || "").trim().toLowerCase();
+    if (!["approved", "rejected", "paid"].includes(normalizedStatus)) {
+      return res.status(400).send({ error: true, message: "Invalid status" });
+    }
+
+    const existingResult = await client.execute({
+      sql: "SELECT * FROM seller_withdrawals WHERE id = ?",
+      args: [withdrawalId],
+    });
+
+    const existing = existingResult.rows?.[0];
+    if (!existing) {
+      return res.status(404).send({ error: true, message: "Withdrawal request not found" });
+    }
+
+    const now = toSqliteDatetime(new Date());
+    const updatedNote = String(note || existing.note || "").trim();
+
+    await client.execute({
+      sql: `UPDATE seller_withdrawals
+            SET status = ?, note = ?, updated_at = ?
+            WHERE id = ?`,
+      args: [normalizedStatus, updatedNote, now, withdrawalId],
+    });
+
+    return res.status(200).send({
+      error: false,
+      message: `Withdrawal marked as ${normalizedStatus}`,
+      details: {
+        id: withdrawalId,
+        status: normalizedStatus,
+        note: updatedNote,
+        updatedAt: now,
+      },
+    });
+  } catch (error) {
+    console.log(error);
+    return res.status(400).send({ error: true, message: "Failed to update withdrawal status" });
   }
 };
 
@@ -2026,6 +2579,11 @@ module.exports = {
   setSellerTrust,
   getAdminAllProducts,
   adminDeleteProduct,
+  getAdminWithdrawals,
+  updateAdminWithdrawalStatus,
+  getAdminPaymentSubmissions,
+  submitPayment,
+  reviewPaymentSubmission,
   addbid,
   removebid,
   fixdeal,
@@ -2037,4 +2595,5 @@ module.exports = {
   sendMessage,
   getMessages,
   getChatList,
+  requestWithdrawal,
 };

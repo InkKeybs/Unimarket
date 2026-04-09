@@ -10,9 +10,6 @@ import { LoaderIcon, toast } from "react-hot-toast";
 function Product() {
   const { prod: routeProductId } = useParams();
   const [notification, setNotification] = useState(false);
-  const [exist, setExist] = useState(false);
-  const [addBid, setAddBid] = useState(false);
-  const [bidAmount, setbidAmount] = useState(0);
   const [loading, setLoading] = useState(true);
   const [prodExist, setProdExist] = useState(false);
   const [id, setId] = useState("");
@@ -40,17 +37,6 @@ function Product() {
     pcat: "CYCLE",
     preg: "2932-23-21",
     __v: 0,
-  });
-  const [bid, setBid] = useState({
-    prodId: "",
-    sellerId: "",
-    bids: {
-      buyerId: "",
-      bidPrice: 0,
-      bidTime: Date(),
-      regno: 411212,
-      cancel: false,
-    },
   });
   const [notificationData, setNotificationData] = useState(
     Array({
@@ -90,7 +76,6 @@ function Product() {
           .then(function (response) {
             console.log("SETID22");
             console.log(response.data.details.data);
-            var flag = false;
             const productData = response.data.details.data;
             const sellerId = productData.seller_id || productData.sellerId || productData.id;
             console.log("eed ", sellerId?.toString?.(), myid);
@@ -100,20 +85,6 @@ function Product() {
             } else {
               setIsMyProd(false);
             }
-            if (response.data.details.bid) {
-              for (let u = 0; u < response.data.details.bid.bids.length; u++) {
-                console.log(response.data.details.bid.bids[u].buyerId, myid);
-                if (
-                  response.data.details.bid.bids[u].buyerId.toString() === myid
-                ) {
-                  flag = true;
-                  break;
-                }
-              }
-
-              setExist(flag);
-              setBid(response.data.details.bid);
-            }
             setData(response.data.details.data);
             setSname(response.data.details.name);
             setSmail(response.data.details.mail);
@@ -121,7 +92,6 @@ function Product() {
             setSellerVerified(Boolean(response.data.details.sellerVerified));
             setSellerRating(Number(response.data.details.sellerRating || 0));
             setSellerRatingCount(Number(response.data.details.sellerRatingCount || 0));
-            setbidAmount(data.pprice);
             if (productData.expires_at || productData.expiresAt) {
               setExpiresAt(new Date(productData.expires_at || productData.expiresAt));
             }
@@ -149,7 +119,6 @@ function Product() {
       .then(function (response) {
         console.log("SETID22");
         console.log(response.data.details.data);
-        var flag = false;
         const productData = response.data.details.data;
         const sellerId = productData.seller_id || productData.sellerId || productData.id;
         console.log("eed ", sellerId?.toString?.(), id);
@@ -159,27 +128,12 @@ function Product() {
         } else {
           setIsMyProd(false);
         }
-        if (response.data.details.bid) {
-          for (let u = 0; u < response.data.details.bid.bids.length; u++) {
-            console.log(response.data.details.bid.bids[u].buyerId, data.id);
-            if (
-              response.data.details.bid.bids[u].buyerId.toString() === data.id
-            ) {
-              flag = true;
-              return;
-            }
-          }
-
-          setExist(flag);
-          setBid(response.data.details.bid);
-        }
         setData(response.data.details.data);
         setSname(response.data.details.name);
         setSmail(response.data.details.mail);
         setSellerVerified(Boolean(response.data.details.sellerVerified));
         setSellerRating(Number(response.data.details.sellerRating || 0));
         setSellerRatingCount(Number(response.data.details.sellerRatingCount || 0));
-        setbidAmount(data.pprice);
         setLoading(false);
         setProdExist(true);
       })
@@ -188,86 +142,6 @@ function Product() {
         console.log(error);
       });
   }, []);
-
-  const handleAddBid = () => {
-    if (bidAmount < data.pprice) {
-      toast.error("Bid Amount cannot be less than product price");
-      return;
-    }
-    const maxBid = data.pprice * 1.1; // 10% above original price
-    if (bidAmount > maxBid) {
-      toast.error(`Bid cannot exceed 10% above the original price (₱${maxBid.toFixed(2)})`);
-      return;
-    }
-    toast.loading("Processing", {
-      duration: 3000,
-    });
-    setAddBid(false);
-    const today = new Date();
-    axios({
-      method: "post",
-      baseURL: `${process.env.REACT_APP_BASEURL}`,
-      url: "/api/addbid",
-      data: {
-        biddata: {
-          buyerId: id,
-          bidPrice: bidAmount,
-              sellerId: data.seller_id || data.sellerId || data.id,
-              pid: data.id || data._id,
-          bidTime: today,
-          cancel: false,
-        },
-      },
-    })
-      .then(function (response) {
-        var flag = false;
-        if (response.data.details.bid) {
-          response.data.details.bid.bids.forEach((element) => {
-            console.log(element.buyerId, data.id);
-            if (element.buyerId === id) {
-              flag = true;
-              return;
-            }
-          });
-          setExist(flag);
-          console.log(response.data.details.bid);
-          setBid(response.data.details.bid);
-          toast.success("Bid added successfully");
-        }
-      })
-      .catch(function (error) {
-        console.log(error);
-      });
-  };
-
-  const handleRemoveBid = () => {
-    toast.loading("Processing", {
-      duration: 2000,
-    });
-    axios({
-      method: "post",
-      baseURL: `${process.env.REACT_APP_BASEURL}`,
-      url: "/api/removebid",
-      data: { productid: data.id || data._id, buyerId: id },
-    })
-      .then(function (response) {
-        var flag = false;
-        toast.success("Removed Bid Successfully");
-        if (response.data.details.bid) {
-          response.data.details.bid.bids.forEach((element) => {
-            if (element.buyerId === id) {
-              flag = true;
-              return;
-            }
-          });
-          setExist(flag);
-          setBid(response.data.details.bid);
-        }
-      })
-      .catch(function (error) {
-        console.log(error);
-      });
-  };
 
   return (
     <>
@@ -342,40 +216,6 @@ function Product() {
             />
           </>
         )
-      ) : (
-        ""
-      )}
-      {addBid ? (
-        <>
-          <div
-            id={styles.backgroundaddbid}
-            onClick={() => {
-              setAddBid(false);
-            }}
-          />
-          <div id={styles.addbid}>
-            <p>Add Bid</p>
-            <input
-              type="number"
-              id={styles.bidInput}
-              min={bidAmount}
-              value={bidAmount}
-              onChange={(e) => {
-                setbidAmount(e.target.value);
-              }}
-            ></input>
-            <div className="flex flex-row justify-evenly">
-              <button
-                onClick={() => {
-                  setAddBid(false);
-                }}
-              >
-                Cancel
-              </button>
-              <button onClick={handleAddBid}>Add</button>
-            </div>
-          </div>
-        </>
       ) : (
         ""
       )}
@@ -498,23 +338,6 @@ function Product() {
                     <div className={styles.ownerPill}>Your listing</div>
                   ) : (
                     <div className={styles.actionStack}>
-                      {!exist ? (
-                        <button
-                          className={styles.addBidButton}
-                          onClick={() => {
-                            setAddBid(true);
-                          }}
-                        >
-                          Add bid
-                        </button>
-                      ) : (
-                        <button
-                          onClick={handleRemoveBid}
-                          className={styles.addBidButton}
-                        >
-                          Remove bid
-                        </button>
-                      )}
                       <button
                         className={styles.chatButton}
                         onClick={() => {
@@ -550,71 +373,9 @@ function Product() {
                     </div>
                   )
                 ) : (
-                  <p>login to add bid</p>
+                  <p>Login to chat or pay with GCash</p>
                 )}
               </div>
-            </div>
-          </div>
-          <div id={styles.bidtable}>
-            <p className={styles.activebidstitle}>Active Bids</p>
-            <div className={styles.bidData}>
-              <div className={styles.bidheading}>
-                <p>Regno.</p>
-                <p>Date</p>
-                <p>Price</p>
-              </div>
-              {bid.sellerId !== "" ? (
-                <div style={{ marginBottom: "20px" }}>
-                  {bid.bids.map((ele, ind) => {
-                    if (isMyProd) {
-                      return (
-                        <Link
-                          key={ind}
-                          to={`/buy-product/${bid.prodId}/${bid.sellerId}/${ele.buyerId}`}
-                          className={styles.bidheading}
-                        >
-                          <p
-                            style={{ background: "rgba(128, 128, 128, 0.022)" }}
-                          >
-                            {ele.regno}
-                          </p>
-                          <p
-                            style={{
-                              background: "rgba(128, 128, 128, 0.022)",
-                            }}
-                          >
-                            {ele.bidTime.slice(0, 10)}
-                          </p>
-                          <p
-                            style={{ background: "rgba(128, 128, 128, 0.022)" }}
-                          >
-                            {ele.bidPrice}
-                          </p>
-                        </Link>
-                      );
-                    }
-                    return (
-                      <div key={ind} className={styles.bidheading}>
-                        <p style={{ background: "rgba(128, 128, 128, 0.022)" }}>
-                          {ele.regno}
-                        </p>
-                        <p
-                          style={{
-                            background: "rgba(128, 128, 128, 0.022)",
-                          }}
-                        >
-                          {ele.bidTime.slice(0, 10)}
-                        </p>
-                        <p style={{ background: "rgba(128, 128, 128, 0.022)" }}>
-                          {ele.bidPrice}
-                        </p>
-                      </div>
-                    );
-                  })}
-                </div>
-              ) : (
-                <div id={styles.noBids}>No Bids made so far</div>
-              )}
             </div>
           </div>
         </>

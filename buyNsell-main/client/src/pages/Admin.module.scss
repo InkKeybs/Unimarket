@@ -72,6 +72,11 @@
     border-radius: 8px;
     padding: 8px 12px;
     cursor: pointer;
+
+    &:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
   }
 }
 
@@ -87,6 +92,13 @@
   color: #b91c1c;
   border-color: #b91c1c !important;
   background: transparent;
+}
+
+.paidBtn {
+  font-weight: 700;
+  color: #fff;
+  border-color: #1d4ed8 !important;
+  background: #1d4ed8;
 }
 
 .deleteBtn {

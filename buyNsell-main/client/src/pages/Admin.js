@@ -8,12 +8,13 @@ const STATUS_COLORS = {
   pending:  { background: "#fff7ed", color: "#c2410c" },
   approved: { background: "#ecfdf5", color: "#047857" },
   rejected: { background: "#fef2f2", color: "#b91c1c" },
+  paid:     { background: "#eff6ff", color: "#1d4ed8" },
 };
 
 function Admin() {
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState("pending"); // "pending" | "all"
+  const [tab, setTab] = useState("pending"); // "pending" | "all" | "withdrawals" | "payments"
 
   // --- Pending tab state ---
   const [pending, setPending] = useState([]);
@@ -24,6 +25,18 @@ function Admin() {
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [confirmDelete, setConfirmDelete] = useState(null); // productId waiting for confirm
+
+  // --- Withdrawals tab state ---
+  const [withdrawalsLoading, setWithdrawalsLoading] = useState(false);
+  const [withdrawals, setWithdrawals] = useState([]);
+  const [withdrawalSearch, setWithdrawalSearch] = useState("");
+  const [withdrawalStatusFilter, setWithdrawalStatusFilter] = useState("");
+
+  // --- Payments tab state ---
+  const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [payments, setPayments] = useState([]);
+  const [paymentSearch, setPaymentSearch] = useState("");
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState("");
 
   const getToken = () => JSON.parse(localStorage.getItem("token"));
 
@@ -53,6 +66,36 @@ function Admin() {
       .finally(() => setAllLoading(false));
   }, []);
 
+  const loadWithdrawals = useCallback((token, searchVal, statusVal) => {
+    setWithdrawalsLoading(true);
+    return axios({
+      method: "post",
+      baseURL: `${process.env.REACT_APP_BASEURL}`,
+      url: "/api/admin/withdrawals",
+      data: { token, search: searchVal, statusFilter: statusVal },
+    })
+      .then((response) => {
+        setWithdrawals(response.data.details || []);
+      })
+      .catch(() => toast.error("Failed to load withdrawal requests"))
+      .finally(() => setWithdrawalsLoading(false));
+  }, []);
+
+  const loadPayments = useCallback((token, searchVal, statusVal) => {
+    setPaymentsLoading(true);
+    return axios({
+      method: "post",
+      baseURL: `${process.env.REACT_APP_BASEURL}`,
+      url: "/api/admin/payments",
+      data: { token, search: searchVal, statusFilter: statusVal },
+    })
+      .then((response) => {
+        setPayments(response.data.details || []);
+      })
+      .catch(() => toast.error("Failed to load payment submissions"))
+      .finally(() => setPaymentsLoading(false));
+  }, []);
+
   useEffect(() => {
     const token = getToken();
     if (!token) { navigate("/login"); return; }
@@ -79,6 +122,10 @@ function Admin() {
   useEffect(() => {
     if (tab === "all") {
       loadAllProducts(getToken(), search, statusFilter);
+    } else if (tab === "withdrawals") {
+      loadWithdrawals(getToken(), withdrawalSearch, withdrawalStatusFilter);
+    } else if (tab === "payments") {
+      loadPayments(getToken(), paymentSearch, paymentStatusFilter);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
@@ -119,6 +166,73 @@ function Admin() {
     e.preventDefault();
     loadAllProducts(getToken(), search, statusFilter);
   };
+
+  const handleWithdrawalSearch = (e) => {
+    e.preventDefault();
+    loadWithdrawals(getToken(), withdrawalSearch, withdrawalStatusFilter);
+  };
+
+  const handleWithdrawalStatus = (withdrawalId, nextStatus) => {
+    const token = getToken();
+    toast.loading("Updating withdrawal...", { duration: 1400 });
+    axios({
+      method: "post",
+      baseURL: `${process.env.REACT_APP_BASEURL}`,
+      url: "/api/admin/withdrawals/update-status",
+      data: { token, withdrawalId, status: nextStatus },
+    })
+      .then(() => {
+        setWithdrawals((prev) =>
+          prev.map((item) =>
+            item.id === withdrawalId
+              ? { ...item, status: nextStatus, updatedAt: new Date().toISOString() }
+              : item
+          )
+        );
+        toast.success(`Withdrawal marked ${nextStatus}`);
+      })
+      .catch((error) => {
+        const message = error?.response?.data?.message || "Failed to update withdrawal";
+        toast.error(message);
+      });
+  };
+
+  const handlePaymentSearch = (e) => {
+    e.preventDefault();
+    loadPayments(getToken(), paymentSearch, paymentStatusFilter);
+  };
+
+  const handlePaymentStatus = (paymentId, nextStatus) => {
+    const token = getToken();
+    toast.loading("Updating payment...", { duration: 1400 });
+    axios({
+      method: "post",
+      baseURL: `${process.env.REACT_APP_BASEURL}`,
+      url: "/api/payments/review",
+      data: { token, paymentId, status: nextStatus, reviewNote: "Reviewed by admin" },
+    })
+      .then(() => {
+        setPayments((prev) =>
+          prev.map((item) =>
+            item.id === paymentId
+              ? { ...item, status: nextStatus, updatedAt: new Date().toISOString() }
+              : item
+          )
+        );
+        toast.success(`Payment ${nextStatus}`);
+      })
+      .catch((error) => {
+        const message = error?.response?.data?.message || "Failed to update payment";
+        toast.error(message);
+      });
+  };
+
+  const formatCurrency = (value) =>
+    new Intl.NumberFormat("en-PH", {
+      style: "currency",
+      currency: "PHP",
+      maximumFractionDigits: 2,
+    }).format(Number(value || 0));
 
   const statusBadge = (status) => {
     const s = status || "approved";
@@ -171,6 +285,20 @@ function Admin() {
         >
           All Listings
         </button>
+        <button
+          type="button"
+          className={tab === "withdrawals" ? styles.tabActive : styles.tab}
+          onClick={() => setTab("withdrawals")}
+        >
+          Withdrawals
+        </button>
+        <button
+          type="button"
+          className={tab === "payments" ? styles.tabActive : styles.tab}
+          onClick={() => setTab("payments")}
+        >
+          Payments
+        </button>
       </div>
 
       {loading ? (
@@ -202,7 +330,7 @@ function Admin() {
             </div>
           )}
         </>
-      ) : (
+      ) : tab === "all" ? (
         <>
           {/* Search / filter bar */}
           <form className={styles.filterBar} onSubmit={handleSearch}>
@@ -246,6 +374,155 @@ function Admin() {
                   </Link>
                   <div className={styles.actionCol}>
                     <button type="button" onClick={() => setConfirmDelete(getProductId(item))} className={styles.deleteBtn}>Delete</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </>
+      ) : tab === "withdrawals" ? (
+        <>
+          <form className={styles.filterBar} onSubmit={handleWithdrawalSearch}>
+            <input
+              className={styles.searchInput}
+              type="text"
+              placeholder="Search by seller name, email, or GCash number..."
+              value={withdrawalSearch}
+              onChange={(e) => setWithdrawalSearch(e.target.value)}
+            />
+            <select
+              className={styles.statusSelect}
+              value={withdrawalStatusFilter}
+              onChange={(e) => setWithdrawalStatusFilter(e.target.value)}
+            >
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+              <option value="paid">Paid</option>
+            </select>
+            <button type="submit" className={styles.searchBtn}>Search</button>
+          </form>
+
+          {withdrawalsLoading ? (
+            <div className={styles.loaderWrap}><LoaderIcon /></div>
+          ) : withdrawals.length === 0 ? (
+            <p>No withdrawal requests found.</p>
+          ) : (
+            <div className={styles.listWrap}>
+              {withdrawals.map((item) => {
+                const canApprove = item.status === "pending";
+                const canReject = item.status === "pending" || item.status === "approved";
+                const canMarkPaid = item.status === "approved";
+
+                return (
+                  <div key={item.id} className={styles.itemCard}>
+                    <div className={styles.itemMain}>
+                      <div>
+                        <p className={styles.productName}>{item.userName || "Seller"}</p>
+                        <p>Email: {item.userMail}</p>
+                        <p>GCash: {item.gcashNumber}</p>
+                        <p>Amount: {formatCurrency(item.amount)} &nbsp;{statusBadge(item.status)}</p>
+                        <p>Requested: {item.createdAt?.slice(0, 10)}</p>
+                        {item.note ? <p>Note: {item.note}</p> : null}
+                      </div>
+                    </div>
+                    <div className={styles.actionCol}>
+                      <button
+                        type="button"
+                        onClick={() => handleWithdrawalStatus(item.id, "approved")}
+                        className={styles.approveBtn}
+                        disabled={!canApprove}
+                      >
+                        Approve
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWithdrawalStatus(item.id, "paid")}
+                        className={styles.paidBtn}
+                        disabled={!canMarkPaid}
+                      >
+                        Mark Paid
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleWithdrawalStatus(item.id, "rejected")}
+                        className={styles.rejectBtn}
+                        disabled={!canReject}
+                      >
+                        Reject
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </>
+      ) : (
+        <>
+          <form className={styles.filterBar} onSubmit={handlePaymentSearch}>
+            <input
+              className={styles.searchInput}
+              type="text"
+              placeholder="Search by buyer, product, or reference..."
+              value={paymentSearch}
+              onChange={(e) => setPaymentSearch(e.target.value)}
+            />
+            <select
+              className={styles.statusSelect}
+              value={paymentStatusFilter}
+              onChange={(e) => setPaymentStatusFilter(e.target.value)}
+            >
+              <option value="">All statuses</option>
+              <option value="pending">Pending</option>
+              <option value="approved">Approved</option>
+              <option value="rejected">Rejected</option>
+            </select>
+            <button type="submit" className={styles.searchBtn}>Search</button>
+          </form>
+
+          {paymentsLoading ? (
+            <div className={styles.loaderWrap}><LoaderIcon /></div>
+          ) : payments.length === 0 ? (
+            <p>No payment submissions found.</p>
+          ) : (
+            <div className={styles.listWrap}>
+              {payments.map((item) => (
+                <div key={item.id} className={styles.itemCard}>
+                  <div className={styles.itemMain}>
+                    {item.productImage ? <img src={item.productImage} alt={item.productName} /> : null}
+                    <div>
+                      <p className={styles.productName}>{item.productName || "Product"}</p>
+                      <p>Buyer: {item.buyerName} ({item.buyerMail})</p>
+                      <p>Seller: {item.sellerName} ({item.sellerMail})</p>
+                      <p>Reference: {item.referenceNumber} &nbsp;{statusBadge(item.status)}</p>
+                      <p>Amount: {formatCurrency(item.amount)}</p>
+                      <p>Platform fee: {formatCurrency(item.platformFee)}</p>
+                      <p>Seller net: {formatCurrency(item.sellerNet)}</p>
+                      <p>Submitted: {item.createdAt?.slice(0, 10)}</p>
+                      {item.receiptImage ? (
+                        <a href={item.receiptImage} target="_blank" rel="noreferrer">View receipt</a>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className={styles.actionCol}>
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentStatus(item.id, "approved")}
+                      className={styles.approveBtn}
+                      disabled={item.status !== "pending"}
+                    >
+                      Approve
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePaymentStatus(item.id, "rejected")}
+                      className={styles.rejectBtn}
+                      disabled={item.status !== "pending"}
+                    >
+                      Reject
+                    </button>
                   </div>
                 </div>
               ))}
