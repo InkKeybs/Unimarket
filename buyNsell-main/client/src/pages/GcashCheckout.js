@@ -26,6 +26,7 @@ function GcashCheckout() {
   const [receiptFile, setReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [resolvedMerchantQrCodeUrl, setResolvedMerchantQrCodeUrl] = useState("");
 
   const amount = useMemo(() => Number(product.pprice || 0), [product.pprice]);
   const formattedAmount = useMemo(
@@ -36,7 +37,21 @@ function GcashCheckout() {
   const merchantName = process.env.REACT_APP_GCASH_ACCOUNT_NAME || "Your GCash account";
   const merchantNumber = process.env.REACT_APP_GCASH_NUMBER || "Replace with your GCash number";
   const merchantQrCodeUrl =
-    process.env.REACT_APP_GCASH_QR_CODE_URL || "/gcash-qr.png";
+    process.env.REACT_APP_GCASH_QR_CODE_URL || `${process.env.PUBLIC_URL || ""}/gcash-qr.png`;
+
+  useEffect(() => {
+    setResolvedMerchantQrCodeUrl(merchantQrCodeUrl);
+  }, [merchantQrCodeUrl]);
+
+  const handleMerchantQrError = () => {
+    const fallbackPath = "/gcash-qr.png";
+    if (resolvedMerchantQrCodeUrl !== fallbackPath) {
+      setResolvedMerchantQrCodeUrl(fallbackPath);
+      return;
+    }
+
+    setResolvedMerchantQrCodeUrl("");
+  };
 
   useEffect(() => {
     if (!receiptFile) {
@@ -212,11 +227,12 @@ function GcashCheckout() {
               </div>
             ) : (
               <div className={styles.qrCard}>
-                {merchantQrCodeUrl ? (
+                {resolvedMerchantQrCodeUrl ? (
                   <img
-                    src={merchantQrCodeUrl}
+                    src={resolvedMerchantQrCodeUrl}
                     alt="Merchant GCash QR code"
                     className={styles.qrCodeImage}
+                    onError={handleMerchantQrError}
                   />
                 ) : (
                   <div className={styles.qrPlaceholder}>
