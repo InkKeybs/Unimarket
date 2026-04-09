@@ -20,7 +20,6 @@ function GcashCheckout() {
   const [loadingProduct, setLoadingProduct] = useState(false);
 
   const [buyerName, setBuyerName] = useState("");
-  const [referenceNumber, setReferenceNumber] = useState("");
   const [receiptNote, setReceiptNote] = useState("");
   const [additionalNote, setAdditionalNote] = useState("");
   const [receiptFile, setReceiptFile] = useState(null);
@@ -130,11 +129,6 @@ function GcashCheckout() {
       return;
     }
 
-    if (!referenceNumber.trim()) {
-      toast.error("Enter the GCash reference number");
-      return;
-    }
-
     if (!receiptFile) {
       toast.error("Upload the payment receipt before submitting");
       return;
@@ -162,7 +156,6 @@ function GcashCheckout() {
           token,
           productId: product.id || productId,
           amount,
-          referenceNumber,
           receiptImage,
           note: mergedNote,
         },
@@ -257,7 +250,7 @@ function GcashCheckout() {
             <ul className={styles.stepList}>
               <li>Open GCash and scan the merchant QR code.</li>
               <li>Send the exact amount shown on this page.</li>
-              <li>Save the receipt and transaction reference number.</li>
+              <li>Save a clear receipt screenshot and upload it below.</li>
             </ul>
           </section>
 
@@ -277,16 +270,6 @@ function GcashCheckout() {
                   value={buyerName}
                   onChange={(event) => setBuyerName(event.target.value)}
                   placeholder="Juan Dela Cruz"
-                />
-              </label>
-
-              <label className={styles.fieldGroup}>
-                <span>Reference number</span>
-                <input
-                  type="text"
-                  value={referenceNumber}
-                  onChange={(event) => setReferenceNumber(event.target.value)}
-                  placeholder="GCash transaction reference"
                 />
               </label>
 

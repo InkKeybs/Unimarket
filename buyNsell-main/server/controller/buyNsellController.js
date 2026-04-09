@@ -1150,9 +1150,7 @@ const submitPayment = async (req, res) => {
     }
 
     const cleanedReference = String(referenceNumber || "").trim();
-    if (!cleanedReference) {
-      return res.status(400).send({ error: true, message: "Reference number is required" });
-    }
+    const storedReference = cleanedReference || `receipt-only-${Date.now()}`;
 
     const cleanedReceipt = String(receiptImage || "").trim();
     if (!/^data:image\/[a-zA-Z0-9.+-]+;base64,/.test(cleanedReceipt)) {
@@ -1187,7 +1185,7 @@ const submitPayment = async (req, res) => {
         buyer.id,
         sellerId,
         numericAmount,
-        cleanedReference,
+        storedReference,
         cleanedReceipt,
         String(note || "").trim(),
         now,
