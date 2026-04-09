@@ -18,9 +18,11 @@ The backend now includes Turso SQL schema + migration scripts.
 
 - Add these env vars in `server/.env` (or Render env):
 	- `TURSO_DATABASE_URL`
-	- `TURSO_AUTH_TOKEN`
+	- `TURSO_AUTH_TOKEN` for remote Turso databases only
 	- `ATLAS_KEY` (required when migrating existing Mongo data)
 	- `DB_NAME` (optional Mongo db name)
+
+- For local SQLite development, set `TURSO_DATABASE_URL=file:./buyNsell.db` and leave `TURSO_AUTH_TOKEN` empty.
 
 - Initialize Turso schema:
 

@@ -94,7 +94,7 @@ const ensureSchemaOnStartup = async () => {
 
     console.log("Turso schema ensured on startup");
   } catch (error) {
-    console.log("Failed to ensure Turso schema:", error?.message || error);
+    console.log("Failed to ensure Turso schema:", getDbStartupErrorMessage(error));
   }
 };
 
@@ -103,13 +103,30 @@ const verifyTursoConnection = async () => {
     const client = getTursoClient();
     await client.execute("SELECT 1");
     console.log("Connected to Turso/SQLite database");
+    return true;
   } catch (error) {
-    console.log("Database connection error:", error?.message || error);
+    console.log("Database connection error:", getDbStartupErrorMessage(error));
+    return false;
   }
 };
 
-verifyTursoConnection();
-ensureSchemaOnStartup();
+const getDbStartupErrorMessage = (error) => {
+  const message = error?.message || String(error || "Unknown database error");
+
+  if (message.toLowerCase().includes("fetch failed")) {
+    return `${message}. Check TURSO_DATABASE_URL and TURSO_AUTH_TOKEN, or switch TURSO_DATABASE_URL to a local file: URL for offline development.`;
+  }
+
+  return message;
+};
+
+verifyTursoConnection().then((isConnected) => {
+  if (isConnected) {
+    return ensureSchemaOnStartup();
+  }
+
+  return null;
+});
 
 const PORT = process.env.PORT || 5000;
 

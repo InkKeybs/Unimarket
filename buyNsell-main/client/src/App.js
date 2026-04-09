@@ -10,6 +10,7 @@ import Profile from "./pages/Profile";
 import Product from "./pages/Product";
 import Shops from "./pages/Shops";
 import FixDeal from "./pages/FixDeal";
+import GcashCheckout from "./pages/GcashCheckout";
 import Chat from "./pages/Chat";
 import Chats from "./pages/Chats";
 import Admin from "./pages/Admin";
@@ -57,6 +58,7 @@ function App() {
         <Route path="/admin" element={<Admin />} />
         <Route path="/buy-product/:prod/:seller/:buyer" element={<FixDeal />} />
         <Route path="/product/:prod" element={<Product />} />
+        <Route path="/gcash-checkout/:productId" element={<GcashCheckout />} />
         <Route path="/shops" element={<Shops />} />
         <Route path="/chats" element={<Chats />} />
         <Route path="/chat/:productId/:otherUserId" element={<Chat />} />

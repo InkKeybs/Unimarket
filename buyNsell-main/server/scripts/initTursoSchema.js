@@ -3,6 +3,16 @@ const fs = require("fs");
 const path = require("path");
 const { getTursoClient } = require("../db/tursoClient");
 
+const getInitErrorMessage = (error) => {
+  const message = error?.message || String(error || "Unknown database error");
+
+  if (message.toLowerCase().includes("fetch failed")) {
+    return `${message}. Check TURSO_DATABASE_URL and TURSO_AUTH_TOKEN, or use a local file: URL when running SQLite offline.`;
+  }
+
+  return message;
+};
+
 const run = async () => {
   const client = getTursoClient();
   const schemaPath = path.join(__dirname, "..", "db", "schema.sql");
@@ -21,6 +31,6 @@ const run = async () => {
 };
 
 run().catch((error) => {
-  console.error("Failed to initialize Turso schema:", error);
+  console.error("Failed to initialize Turso schema:", getInitErrorMessage(error));
   process.exit(1);
 });

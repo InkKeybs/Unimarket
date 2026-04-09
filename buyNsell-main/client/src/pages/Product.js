@@ -531,6 +531,22 @@ function Product() {
                       >
                         Chat with Seller
                       </button>
+                      <Link
+                        to={`/gcash-checkout/${data.id || data._id}`}
+                        state={{
+                          product: {
+                            id: data.id || data._id,
+                            pname: data.pname,
+                            pprice: data.pprice,
+                            pimage: data.pimage,
+                            sellerName: sname,
+                            sellerMail: smail,
+                          },
+                        }}
+                        className={styles.gcashButton}
+                      >
+                        Pay with GCash
+                      </Link>
                     </div>
                   )
                 ) : (

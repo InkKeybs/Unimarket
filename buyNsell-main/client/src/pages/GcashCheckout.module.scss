@@ -1,0 +1,465 @@
+.checkoutPage {
+  position: relative;
+  min-height: 100vh;
+  padding: 96px 5vw 40px;
+  background:
+    radial-gradient(circle at top left, rgba(11, 143, 138, 0.16), transparent 34%),
+    radial-gradient(circle at top right, rgba(13, 53, 95, 0.12), transparent 30%),
+    linear-gradient(180deg, #f5fbfa 0%, #eef5f8 100%);
+}
+
+.checkoutGlow {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.25), transparent 40%);
+  pointer-events: none;
+}
+
+.checkoutShell {
+  position: relative;
+  z-index: 1;
+  width: min(1200px, 100%);
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+.heroCard,
+.qrPanel,
+.formPanel,
+.summaryCard {
+  border: 1px solid rgba(15, 81, 122, 0.12);
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 18px 50px rgba(7, 33, 58, 0.08);
+  backdrop-filter: blur(14px);
+}
+
+.heroCard {
+  border-radius: 28px;
+  padding: 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(280px, 0.8fr);
+  gap: 20px;
+  align-items: stretch;
+}
+
+.heroText h1 {
+  margin: 0;
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1.02;
+  letter-spacing: -0.04em;
+  color: #0d355f;
+}
+
+.kicker,
+.panelLabel,
+.summaryLabel {
+  margin: 0 0 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  font-size: 0.74rem;
+  font-weight: 800;
+  color: #0b8f8a;
+}
+
+.heroCopy {
+  margin: 14px 0 0;
+  max-width: 60ch;
+  color: #355676;
+  line-height: 1.7;
+}
+
+.heroPills {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 18px;
+
+  span {
+    border-radius: 999px;
+    padding: 0.5rem 0.85rem;
+    background: #edf8f7;
+    color: #0b6d67;
+    border: 1px solid #cfeeed;
+    font-weight: 700;
+    font-size: 0.86rem;
+  }
+}
+
+.summaryCard {
+  border-radius: 22px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 12px;
+}
+
+.summaryAmount {
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  color: #0d355f;
+}
+
+.summaryMeta {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  font-size: 0.95rem;
+  color: #355676;
+
+  strong {
+    color: #0d355f;
+    font-weight: 800;
+    text-align: right;
+  }
+}
+
+.checkoutGrid {
+  display: grid;
+  grid-template-columns: minmax(0, 0.95fr) minmax(0, 1.05fr);
+  gap: 18px;
+}
+
+.qrPanel,
+.formPanel {
+  border-radius: 24px;
+  padding: 22px;
+}
+
+.panelHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 14px;
+  margin-bottom: 18px;
+
+  h2 {
+    margin: 0;
+    color: #0d355f;
+    font-size: 1.45rem;
+  }
+}
+
+.statusBadge {
+  border-radius: 999px;
+  padding: 0.45rem 0.8rem;
+  background: rgba(11, 143, 138, 0.12);
+  color: #0b6d67;
+  border: 1px solid rgba(11, 143, 138, 0.22);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.qrFrame,
+.qrPlaceholder,
+.uploadCard {
+  border-radius: 22px;
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  overflow: hidden;
+}
+
+.loadingWrap {
+  min-height: 320px;
+  display: grid;
+  place-items: center;
+  color: #0b8f8a;
+}
+
+.qrFrame {
+  background: linear-gradient(180deg, #f8fffe 0%, #effbf9 100%);
+  border: 1px solid #d7efeb;
+  padding: 18px;
+}
+
+.qrImage {
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  object-fit: contain;
+  border-radius: 18px;
+}
+
+.qrPlaceholder {
+  background:
+    radial-gradient(circle at 20% 20%, rgba(11, 143, 138, 0.14), transparent 22%),
+    linear-gradient(180deg, #f8fffe 0%, #effbf9 100%);
+  border: 1px dashed #9ed8d3;
+  padding: 28px;
+  text-align: center;
+  color: #355676;
+}
+
+.uploadCard {
+  background:
+    radial-gradient(circle at top, rgba(11, 143, 138, 0.14), transparent 32%),
+    linear-gradient(180deg, #f8fffe 0%, #effbf9 100%);
+  border: 1px solid #d7efeb;
+  padding: 22px;
+  text-align: left;
+  color: #355676;
+  gap: 16px;
+  align-content: center;
+}
+
+.uploadHeader {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+
+  h3 {
+    margin: 0;
+    color: #0d355f;
+    font-size: 1.15rem;
+  }
+
+  p {
+    margin: 6px 0 0;
+    color: #4c6b84;
+    line-height: 1.5;
+  }
+}
+
+.uploadBadge {
+  width: 54px;
+  height: 54px;
+  border-radius: 18px;
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #0b8f8a 0%, #0d355f 100%);
+  color: #fff;
+  font-size: 1.35rem;
+  font-weight: 900;
+  box-shadow: 0 18px 30px rgba(11, 143, 138, 0.2);
+}
+
+.uploadDropzone {
+  width: 100%;
+  min-height: 230px;
+  border-radius: 20px;
+  border: 1px dashed #9ed8d3;
+  background: rgba(255, 255, 255, 0.7);
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 10px;
+  padding: 18px;
+  text-align: center;
+  cursor: pointer;
+  color: #355676;
+
+  input {
+    display: none;
+  }
+
+  strong {
+    color: #0d355f;
+    font-size: 1rem;
+  }
+
+  p {
+    margin: 0;
+    font-size: 0.92rem;
+    color: #4c6b84;
+  }
+}
+
+.uploadIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: rgba(11, 143, 138, 0.14);
+  color: #0b6d67;
+  font-size: 2rem;
+  font-weight: 900;
+}
+
+.qrPreviewFrame {
+  width: 100%;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  border-radius: 20px;
+  background: linear-gradient(180deg, #ffffff 0%, #f3fbfa 100%);
+  border: 1px solid #d7efeb;
+}
+
+.qrPreviewImage {
+  width: min(100%, 320px);
+  aspect-ratio: 1;
+  object-fit: contain;
+  border-radius: 18px;
+}
+
+.uploadActions {
+  width: 100%;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.secondaryButton {
+  border: 1px solid #cfe0ea;
+  border-radius: 12px;
+  padding: 0.7rem 1rem;
+  background: #fff;
+  color: #0d355f;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 8px 18px rgba(13, 53, 95, 0.1);
+  }
+}
+
+.merchantBox {
+  display: grid;
+  gap: 10px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  margin-top: 18px;
+
+  div {
+    border-radius: 16px;
+    padding: 14px;
+    background: #f3faf9;
+    border: 1px solid #d2ece9;
+  }
+
+  span {
+    display: block;
+    color: #4c6b84;
+    font-size: 0.84rem;
+    margin-bottom: 6px;
+  }
+
+  strong {
+    color: #0d355f;
+    font-size: 0.98rem;
+    word-break: break-word;
+  }
+}
+
+.stepList {
+  margin: 18px 0 0;
+  padding-left: 18px;
+  color: #355676;
+  line-height: 1.65;
+}
+
+.checkoutForm {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.fieldGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  color: #0d355f;
+  font-weight: 700;
+
+  input,
+  textarea {
+    width: 100%;
+    border-radius: 16px;
+    border: 1px solid #cfe0ea;
+    background: #fff;
+    padding: 0.95rem 1rem;
+    font: inherit;
+    color: #183a5a;
+    outline: none;
+    transition: border-color 0.18s ease, box-shadow 0.18s ease;
+  }
+
+  input:focus,
+  textarea:focus {
+    border-color: #0b8f8a;
+    box-shadow: 0 0 0 4px rgba(11, 143, 138, 0.12);
+  }
+
+  textarea {
+    resize: vertical;
+    min-height: 110px;
+  }
+}
+
+.noticeBox {
+  border-radius: 16px;
+  padding: 14px 16px;
+  background: #fff7e7;
+  border: 1px solid #f1d99f;
+  color: #8b5b00;
+  font-weight: 700;
+  line-height: 1.55;
+}
+
+.submitButton {
+  border: none;
+  border-radius: 14px;
+  padding: 0.95rem 1.2rem;
+  background: linear-gradient(135deg, #0b8f8a 0%, #0d355f 100%);
+  color: white;
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  box-shadow: 0 14px 24px rgba(11, 143, 138, 0.22);
+  transition: transform 0.2s ease, box-shadow 0.2s ease, opacity 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 16px 30px rgba(11, 143, 138, 0.28);
+  }
+
+  &:disabled {
+    opacity: 0.7;
+    cursor: progress;
+    transform: none;
+  }
+}
+
+.backLink {
+  text-align: center;
+  text-decoration: none;
+  color: #0d355f;
+  font-weight: 700;
+  padding: 0.45rem 0;
+}
+
+@media only screen and (max-width: 900px) {
+  .heroCard,
+  .checkoutGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .merchantBox {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media only screen and (max-width: 640px) {
+  .checkoutPage {
+    padding: 84px 4vw 24px;
+  }
+
+  .heroCard,
+  .qrPanel,
+  .formPanel {
+    padding: 18px;
+    border-radius: 20px;
+  }
+
+  .panelHeader {
+    flex-direction: column;
+  }
+}
