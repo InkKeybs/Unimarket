@@ -1590,9 +1590,10 @@ const sell = async (req, res) => {
       Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000
     );
     
+    const { id: productId, ...productData } = pdata || {};
+
     await createProduct({
-      ...pdata,
-      id,
+      ...productData,
       seller_id: id,
       status: PRODUCT_APPROVAL_STATUS.PENDING,
       expiresAt,

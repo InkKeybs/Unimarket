@@ -362,6 +362,7 @@ function Product() {
                             pname: data.pname,
                             pprice: data.pprice,
                             pimage: data.pimage,
+                            sellerId: data.seller_id || data.sellerId,
                             sellerName: sname,
                             sellerMail: smail,
                           },

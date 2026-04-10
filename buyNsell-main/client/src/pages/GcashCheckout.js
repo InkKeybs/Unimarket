@@ -25,6 +25,7 @@ function GcashCheckout() {
   const [receiptFile, setReceiptFile] = useState(null);
   const [receiptPreview, setReceiptPreview] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [submittedChatContext, setSubmittedChatContext] = useState(null);
   const [resolvedMerchantQrCodeUrl, setResolvedMerchantQrCodeUrl] = useState("");
 
   const amount = useMemo(() => Number(product.pprice || 0), [product.pprice]);
@@ -67,6 +68,28 @@ function GcashCheckout() {
   }, [receiptFile]);
 
   useEffect(() => {
+    if (!submittedChatContext?.chatProductId || !submittedChatContext?.chatSellerId) {
+      return undefined;
+    }
+
+    const timeout = setTimeout(() => {
+      navigate(
+        `/chat/${submittedChatContext.chatProductId}/${submittedChatContext.chatSellerId}`,
+        {
+          state: {
+            fromGcashCheckout: true,
+            paymentSubmitted: true,
+            autoMessageText: submittedChatContext.autoMessageText,
+            submissionKey: submittedChatContext.submissionKey,
+          },
+        }
+      );
+    }, 1800);
+
+    return () => clearTimeout(timeout);
+  }, [navigate, submittedChatContext]);
+
+  useEffect(() => {
     if (product?.pprice || product?.id) {
       return;
     }
@@ -92,6 +115,7 @@ function GcashCheckout() {
           pname: details.data?.pname || "Selected item",
           pprice: details.data?.pprice || 0,
           pimage: details.data?.pimage || "",
+          sellerId: details.data?.seller_id || details.data?.sellerId || "",
           sellerName: details.name || "Seller",
           sellerMail: details.mail || "",
         });
@@ -161,9 +185,22 @@ function GcashCheckout() {
         },
       });
 
+      const chatProductId = product.id || productId;
+      const chatSellerId = product.sellerId;
       setSubmitting(false);
+      if (!chatProductId || !chatSellerId) {
+        toast.success("Receipt submitted and queued for verification");
+        navigate("/");
+        return;
+      }
+
       toast.success("Receipt submitted and queued for verification");
-      navigate("/");
+      setSubmittedChatContext({
+        chatProductId,
+        chatSellerId,
+        autoMessageText: `Hi! I submitted my GCash payment receipt for ${product.pname || "this item"} (${formattedAmount}).`,
+        submissionKey: `${chatProductId}-${chatSellerId}-${Date.now()}`,
+      });
     } catch (error) {
       const message = error?.response?.data?.message || "Failed to submit payment";
       toast.error(message);
@@ -262,75 +299,109 @@ function GcashCheckout() {
               </div>
             </div>
 
-            <form className={styles.checkoutForm} onSubmit={handleSubmit}>
-              <label className={styles.fieldGroup}>
-                <span>Buyer name</span>
-                <input
-                  type="text"
-                  value={buyerName}
-                  onChange={(event) => setBuyerName(event.target.value)}
-                  placeholder="Juan Dela Cruz"
-                />
-              </label>
-
-              <label className={styles.fieldGroup}>
-                <span>Receipt upload</span>
-                <input type="file" accept="image/*" onChange={handleReceiptUpload} />
-              </label>
-
-              {receiptPreview ? (
-                <div className={styles.receiptPreviewFrame}>
-                  <img
-                    src={receiptPreview}
-                    alt="Uploaded GCash receipt preview"
-                    className={styles.receiptPreviewImage}
-                  />
+            {submittedChatContext ? (
+              <div className={styles.successCard}>
+                <h3>Receipt submitted successfully</h3>
+                <p>
+                  Your payment proof is now in the admin verification queue. We are opening your
+                  chat with the seller automatically.
+                </p>
+                <div className={styles.successActions}>
                   <button
                     type="button"
-                    className={styles.secondaryButton}
-                    onClick={() => setReceiptFile(null)}
+                    className={styles.submitButton}
+                    onClick={() => {
+                      navigate(
+                        `/chat/${submittedChatContext.chatProductId}/${submittedChatContext.chatSellerId}`,
+                        {
+                          state: {
+                            fromGcashCheckout: true,
+                            paymentSubmitted: true,
+                            autoMessageText: submittedChatContext.autoMessageText,
+                            submissionKey: submittedChatContext.submissionKey,
+                          },
+                        }
+                      );
+                    }}
                   >
-                    Replace receipt
+                    Open chat with seller now
                   </button>
+                  <Link to="/" className={styles.backLink}>
+                    Back to home instead
+                  </Link>
                 </div>
-              ) : (
-                <div className={styles.receiptDropzoneHint}>
-                  Upload a screenshot or photo of your payment receipt.
-                </div>
-              )}
-
-              <label className={styles.fieldGroup}>
-                <span>Receipt note</span>
-                <textarea
-                  rows="4"
-                  value={receiptNote}
-                  onChange={(event) => setReceiptNote(event.target.value)}
-                  placeholder="Add the transaction date, amount sent, or any receipt details"
-                />
-              </label>
-
-              <label className={styles.fieldGroup}>
-                <span>Optional note</span>
-                <textarea
-                  rows="3"
-                  value={additionalNote}
-                  onChange={(event) => setAdditionalNote(event.target.value)}
-                  placeholder="Add delivery instructions, pickup time, or a short message"
-                />
-              </label>
-
-              <div className={styles.noticeBox}>
-                Your receipt will be reviewed manually before the order is marked as paid.
               </div>
+            ) : (
+              <form className={styles.checkoutForm} onSubmit={handleSubmit}>
+                <label className={styles.fieldGroup}>
+                  <span>Buyer name</span>
+                  <input
+                    type="text"
+                    value={buyerName}
+                    onChange={(event) => setBuyerName(event.target.value)}
+                    placeholder="Juan Dela Cruz"
+                  />
+                </label>
 
-              <button type="submit" className={styles.submitButton} disabled={submitting}>
-                {submitting ? "Submitting..." : "Submit for verification"}
-              </button>
+                <label className={styles.fieldGroup}>
+                  <span>Receipt upload</span>
+                  <input type="file" accept="image/*" onChange={handleReceiptUpload} />
+                </label>
 
-              <Link to="/" className={styles.backLink}>
-                Cancel and go back home
-              </Link>
-            </form>
+                {receiptPreview ? (
+                  <div className={styles.receiptPreviewFrame}>
+                    <img
+                      src={receiptPreview}
+                      alt="Uploaded GCash receipt preview"
+                      className={styles.receiptPreviewImage}
+                    />
+                    <button
+                      type="button"
+                      className={styles.secondaryButton}
+                      onClick={() => setReceiptFile(null)}
+                    >
+                      Replace receipt
+                    </button>
+                  </div>
+                ) : (
+                  <div className={styles.receiptDropzoneHint}>
+                    Upload a screenshot or photo of your payment receipt.
+                  </div>
+                )}
+
+                <label className={styles.fieldGroup}>
+                  <span>Receipt note</span>
+                  <textarea
+                    rows="4"
+                    value={receiptNote}
+                    onChange={(event) => setReceiptNote(event.target.value)}
+                    placeholder="Add the transaction date, amount sent, or any receipt details"
+                  />
+                </label>
+
+                <label className={styles.fieldGroup}>
+                  <span>Optional note</span>
+                  <textarea
+                    rows="3"
+                    value={additionalNote}
+                    onChange={(event) => setAdditionalNote(event.target.value)}
+                    placeholder="Add delivery instructions, pickup time, or a short message"
+                  />
+                </label>
+
+                <div className={styles.noticeBox}>
+                  Your receipt will be reviewed manually before the order is marked as paid.
+                </div>
+
+                <button type="submit" className={styles.submitButton} disabled={submitting}>
+                  {submitting ? "Submitting..." : "Submit for verification"}
+                </button>
+
+                <Link to="/" className={styles.backLink}>
+                  Cancel and go back home
+                </Link>
+              </form>
+            )}
           </section>
         </main>
       </div>

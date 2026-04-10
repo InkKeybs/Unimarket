@@ -361,7 +361,11 @@ const getProductById = async (productId) => {
 const createProduct = async (productData) => {
   const client = getTursoClient();
   try {
-    const id = productData.id || crypto.randomUUID();
+    const id = crypto.randomUUID();
+    const sellerId = productData.seller_id;
+    if (!sellerId) {
+      throw new Error("seller_id is required to create a product");
+    }
     await client.execute({
       sql: `INSERT INTO products 
             (id, seller_id, pname, pprice, pdetail, pcondition, pdate, pimage, pcat, preg, 
@@ -369,7 +373,7 @@ const createProduct = async (productData) => {
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       args: [
         id,
-        productData.seller_id || productData.id,
+        sellerId,
         productData.pname || '',
         productData.pprice || 0,
         productData.pdetail || '',

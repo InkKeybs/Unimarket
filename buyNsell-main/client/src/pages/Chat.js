@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate, Link, useLocation } from "react-router-dom";
 import axios from "axios";
 import { toast } from "react-hot-toast";
 import styles from "./Chat.module.scss";
@@ -7,6 +7,7 @@ import styles from "./Chat.module.scss";
 function Chat() {
   const { productId, otherUserId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
   const [userId, setUserId] = useState("");
@@ -14,6 +15,7 @@ function Chat() {
   const [productName, setProductName] = useState("");
   const [loading, setLoading] = useState(true);
   const messagesEndRef = useRef(null);
+  const handledSubmissionKeyRef = useRef("");
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -118,6 +120,60 @@ function Chat() {
         toast.error("Failed to send message");
       });
   };
+
+  useEffect(() => {
+    const gcashState = location.state;
+    if (!userId || !gcashState?.fromGcashCheckout) {
+      return;
+    }
+
+    const submissionKey =
+      gcashState.submissionKey || `${productId}-${otherUserId}-${userId}-gcash-submission`;
+
+    if (handledSubmissionKeyRef.current === submissionKey) {
+      return;
+    }
+    handledSubmissionKeyRef.current = submissionKey;
+
+    const sentKey = `gcash-chat-intro:${submissionKey}`;
+    const clearLocationState = () => {
+      navigate(location.pathname, { replace: true, state: null });
+    };
+
+    toast.success("Payment receipt submitted. You can now chat with the seller.");
+
+    if (sessionStorage.getItem(sentKey)) {
+      clearLocationState();
+      return;
+    }
+
+    const initialMessage =
+      gcashState.autoMessageText ||
+      "Hi! I submitted my GCash payment receipt for verification. Please check once approved by admin.";
+
+    axios({
+      method: "post",
+      baseURL: `${process.env.REACT_APP_BASEURL}`,
+      url: "/api/sendMessage",
+      data: {
+        productId: productId,
+        senderId: userId,
+        receiverId: otherUserId,
+        message: initialMessage,
+      },
+    })
+      .then(() => {
+        sessionStorage.setItem(sentKey, "1");
+        loadMessages(userId);
+      })
+      .catch((err) => {
+        console.log(err);
+        toast.error("Could not send the automatic payment message");
+      })
+      .finally(() => {
+        clearLocationState();
+      });
+  }, [location.pathname, location.state, navigate, otherUserId, productId, userId]);
 
   // Auto-refresh messages every 3 seconds
   useEffect(() => {

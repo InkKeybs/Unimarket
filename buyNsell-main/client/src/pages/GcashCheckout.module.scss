@@ -411,6 +411,35 @@
   gap: 14px;
 }
 
+.successCard {
+  border-radius: 18px;
+  border: 1px solid #b7e5d7;
+  background: linear-gradient(180deg, #f4fffb 0%, #ecf9f6 100%);
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  h3 {
+    margin: 0;
+    color: #0d355f;
+    font-size: 1.22rem;
+  }
+
+  p {
+    margin: 0;
+    color: #355676;
+    line-height: 1.6;
+  }
+}
+
+.successActions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 8px;
+}
+
 .fieldGroup {
   display: flex;
   flex-direction: column;
