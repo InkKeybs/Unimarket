@@ -27,7 +27,6 @@ function Sell() {
     pcondition: "Used",
     pcat: "",
     pimage: "",
-    id: "",
   });
 
   const priceValue = useMemo(() => Number(data.pprice || 0), [data.pprice]);
@@ -60,9 +59,6 @@ function Sell() {
       .then(function (response) {
         const id = response.data.userid;
         setId(id);
-        setData((prev) => {
-          return { ...prev, id: id };
-        });
         axios({
           method: "post",
           baseURL: `${process.env.REACT_APP_BASEURL}`,
