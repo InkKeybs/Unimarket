@@ -1590,7 +1590,8 @@ const sell = async (req, res) => {
       Date.now() + LISTING_EXPIRY_DAYS * 24 * 60 * 60 * 1000
     );
     
-    const { id: productId, ...productData } = pdata || {};
+    const productData = { ...(pdata || {}) };
+    delete productData.id;
 
     await createProduct({
       ...productData,

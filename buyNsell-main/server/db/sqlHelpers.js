@@ -1,6 +1,8 @@
 const { getTursoClient } = require("./tursoClient");
 const crypto = require("crypto");
 
+const PRODUCT_ID_INSERT_RETRY_LIMIT = 3;
+
 // Helper: Convert UTC string to SQLite format
 const toSqliteDatetime = (date) => {
   if (!date) return null;
@@ -360,40 +362,53 @@ const getProductById = async (productId) => {
 
 const createProduct = async (productData) => {
   const client = getTursoClient();
-  try {
-    const id = crypto.randomUUID();
-    const sellerId = productData.seller_id;
-    if (!sellerId) {
-      throw new Error("seller_id is required to create a product");
-    }
-    await client.execute({
-      sql: `INSERT INTO products 
-            (id, seller_id, pname, pprice, pdetail, pcondition, pdate, pimage, pcat, preg, 
-             sold, status, expires_at, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      args: [
-        id,
-        sellerId,
-        productData.pname || '',
-        productData.pprice || 0,
-        productData.pdetail || '',
-        productData.pcondition || 'Used',
-        productData.pdate || toSqliteDatetime(new Date()),
-        productData.pimage || '',
-        productData.pcat || '',
-        productData.preg || 0,
-        toBoolInt(productData.sold || false),
-        productData.status || 'pending',
-        toSqliteDatetime(productData.expiresAt),
-        toSqliteDatetime(new Date()),
-        toSqliteDatetime(new Date())
-      ]
-    });
-    return id;
-  } catch (error) {
-    console.log("Error creating product:", error);
-    throw error;
+  const sellerId = productData.seller_id;
+  if (!sellerId) {
+    throw new Error("seller_id is required to create a product");
   }
+
+  for (let attempt = 1; attempt <= PRODUCT_ID_INSERT_RETRY_LIMIT; attempt += 1) {
+    const id = crypto.randomUUID();
+    try {
+      await client.execute({
+        sql: `INSERT INTO products 
+              (id, seller_id, pname, pprice, pdetail, pcondition, pdate, pimage, pcat, preg, 
+               sold, status, expires_at, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        args: [
+          id,
+          sellerId,
+          productData.pname || '',
+          productData.pprice || 0,
+          productData.pdetail || '',
+          productData.pcondition || 'Used',
+          productData.pdate || toSqliteDatetime(new Date()),
+          productData.pimage || '',
+          productData.pcat || '',
+          productData.preg || 0,
+          toBoolInt(productData.sold || false),
+          productData.status || 'pending',
+          toSqliteDatetime(productData.expiresAt),
+          toSqliteDatetime(new Date()),
+          toSqliteDatetime(new Date())
+        ]
+      });
+      return id;
+    } catch (error) {
+      const collisionOnProductId =
+        error?.code === "SQLITE_CONSTRAINT" &&
+        String(error?.message || "").includes("products.id");
+
+      if (collisionOnProductId && attempt < PRODUCT_ID_INSERT_RETRY_LIMIT) {
+        continue;
+      }
+
+      console.log("Error creating product:", error);
+      throw error;
+    }
+  }
+
+  throw new Error("Failed to create product after retrying ID generation");
 };
 
 const getPendingProducts = async () => {

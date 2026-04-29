@@ -31,10 +31,13 @@ function Register() {
     phone: "",
     password: "",
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const handleSubmit = (e) => {
     e.preventDefault();
     if (loading) return;
+
+    if (!acceptedTerms) { toast.error("You must agree to the Terms & Conditions to register."); return; }
 
     if (data.name === "") { toast.error("Name field required!"); return; }
     if (!data.mail.endsWith("@rtu.edu.ph")) { toast.error("Please use your RTU email (must end with @rtu.edu.ph)!"); return; }
@@ -179,6 +182,12 @@ function Register() {
               <input required type="text" name="address" value={data.address} placeholder="address" onChange={handleChange} autoComplete="off" />
               <input required type="number" name="phone" maxLength={10} minLength={10} placeholder="phone no." value={data.phone} onChange={handleChange} autoComplete="off" />
               <input required type="password" name="password" placeholder="password" minLength={8} maxLength={16} value={data.password} onChange={handleChange} autoComplete="off" />
+              <div style={{ marginTop: 8, marginBottom: 8, color: "#ccc", fontSize: 14 }}>
+                <label style={{ cursor: "pointer" }}>
+                  <input type="checkbox" checked={acceptedTerms} onChange={(e) => setAcceptedTerms(e.target.checked)} style={{ marginRight: 8 }} />
+                  I agree to the <Link to="/terms" style={{ color: "#ffd700" }}>Terms & Conditions</Link>
+                </label>
+              </div>
               <span id={styles.registerHere}>
                 already a user?{" "}
                 <Link to="/login" style={{ color: "#ffd700" }}>Sign In</Link>

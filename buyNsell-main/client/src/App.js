@@ -15,6 +15,7 @@ import Chat from "./pages/Chat";
 import Chats from "./pages/Chats";
 import Admin from "./pages/Admin";
 import ChatWidget from "./components/ChatWidget/ChatWidget";
+import Terms from "./pages/Terms";
 
 const THEME_STORAGE_KEY = "theme";
 
@@ -62,6 +63,7 @@ function App() {
         <Route path="/shops" element={<Shops />} />
         <Route path="/chats" element={<Chats />} />
         <Route path="/chat/:productId/:otherUserId" element={<Chat />} />
+        <Route path="/terms" element={<Terms />} />
       </Routes>
       <ChatWidget />
     </>
